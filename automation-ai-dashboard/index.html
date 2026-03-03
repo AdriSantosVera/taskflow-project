@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solvion IA — Solución + Visión</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-title">Solvion <span>IA</span></div>
+    <div class="brand-subtitle">Solución + Visión</div>
+  </div>
+
+  <nav class="nav" aria-label="Navegación">
+    <a href="#servicios" data-link="servicios">Servicios</a>
+    <a href="#proyectos" data-link="proyectos">Proyectos</a>
+    <a class="btn" href="#contacto" data-link="contacto">Contacto</a>
+  </nav>
+</header>
+
+<main class="layout">
+
+  <aside class="sidebar">
+    <section class="panel logo-panel">
+      <img
+        class="side-banner"
+        src="./assets/solvion-hand.png"
+        alt="Solvion IA"
+      />
+    </section>
+
+    <section class="panel">
+      <h2 class="h2">Sobre Solvion</h2>
+      <p class="muted">
+        Solvion IA combina estrategia y tecnología para diseñar páginas web,
+        aplicaciones web y automatizaciones empresariales.
+      </p>
+    </section>
+  </aside>
+
+  <section class="content">
+
+    <!-- HERO -->
+    <section class="panel hero" id="inicio" data-accent="gold">
+      <div class="hero-left">
+        <p class="eyebrow">SOLVION IA</p>
+        <h1 class="headline">Solución + Visión para tu negocio digital.</h1>
+        <p class="lead">
+          Creamos páginas web premium, aplicaciones web y automatizaciones inteligentes
+          para empresas que quieren crecer.
+        </p>
+
+        <div class="actions">
+          <a class="btn primary" href="#contacto">Solicitar propuesta</a>
+          <a class="btn ghost" href="#proyectos">Ver trabajos</a>
+        </div>
+      </div>
+
+      <!-- ROTADOR AUTOMÁTICO -->
+      <div class="hero-right">
+        <div class="rotator" aria-label="Servicios destacados">
+          <div class="slide s1"><div class="mock web">Páginas Web Premium</div></div>
+          <div class="slide s2"><div class="mock app">Aplicaciones Web</div></div>
+          <div class="slide s3"><div class="mock auto">Automatizaciones & IA</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SERVICIOS -->
+    <section class="panel" id="servicios" data-accent="blue">
+      <h2 class="h2">Servicios</h2>
+
+      <div class="grid">
+        <div class="tile">
+          <div class="tile-title">Páginas Web</div>
+          <div class="tile-text">Diseño minimalista, responsive y optimizado.</div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-title">Aplicaciones Web</div>
+          <div class="tile-text">Dashboards, reservas y paneles de gestión.</div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-title">Automatizaciones</div>
+          <div class="tile-text">Integraciones CRM, WhatsApp, email e IA.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROYECTOS (flex requerido) -->
+    <section class="panel" id="proyectos" data-accent="violet">
+      <h2 class="h2">Proyectos</h2>
+
+      <article class="card">
+        <div class="card-row">
+          <div class="card-title">Web Restaurante Premium</div>
+          <div class="card-meta">
+            <span class="badge">Web</span>
+            <span class="badge prio high">Alta</span>
+          </div>
+        </div>
+        <p class="card-sub">Landing optimizada con sistema de reservas.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-row">
+          <div class="card-title">Dashboard Gestión Clientes</div>
+          <div class="card-meta">
+            <span class="badge">App Web</span>
+            <span class="badge prio mid">Media</span>
+          </div>
+        </div>
+        <p class="card-sub">Panel administrativo con métricas en tiempo real.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-row">
+          <div class="card-title">Automatización Leads → CRM</div>
+          <div class="card-meta">
+            <span class="badge">Automatización</span>
+            <span class="badge prio low">Baja</span>
+          </div>
+        </div>
+        <p class="card-sub">Captura y seguimiento automático de clientes.</p>
+      </article>
+    </section>
+
+    <!-- CONTACTO -->
+    <section class="panel" id="contacto" data-accent="gold">
+      <h2 class="h2">Contacto</h2>
+      <p class="lead">Cuéntame tu idea y te preparo una propuesta profesional.</p>
+
+      <div class="contact">
+        <div><span class="muted">Email:</span> ad.santosvera@gmail.com</div>
+        <div><span class="muted">Ubicación:</span> España</div>
+      </div>
+    </section>
+
+  </section>
+</main>
+
+<script>
+  // Scroll suave
+  document.documentElement.style.scrollBehavior = "smooth";
+
+  const header = document.querySelector(".header");
+  const links = Array.from(document.querySelectorAll(".nav a[data-link]"));
+  const ids = links.map(a => a.getAttribute("data-link"));
+
+  function setActive(id){
+    links.forEach(a => {
+      const isMatch = a.dataset.link === id;
+      a.classList.toggle("is-active", isMatch);
+
+      // extra pro: accesibilidad
+      if (isMatch) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+  }
+
+  // Click: activa al instante
+  links.forEach(a => {
+    a.addEventListener("click", () => setActive(a.dataset.link));
+  });
+
+  // Scroll: sección más cercana al top
+  function onScroll(){
+    const offset = (header?.offsetHeight || 0) + 24; // header + margen
+    let current = ids[0];
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const top = el.getBoundingClientRect().top;
+      if (top - offset <= 0) current = id;
+    });
+
+    setActive(current);
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  // Inicial: marca correcto según posición real
+  onScroll();
+</script>
+
+</body>
+</html>
