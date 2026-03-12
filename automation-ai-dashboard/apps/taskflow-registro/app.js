@@ -30,6 +30,7 @@ const taskForm = $("taskForm");
 const taskModalTitle = $("taskModalTitle");
 const taskInput = $("taskInput");
 const taskFolderSelect = $("taskFolderSelect");
+const taskPrioritySelect = $("taskPrioritySelect");
 const cancelBtn = $("cancelBtn");
 const saveBtn = $("saveBtn");
 const currentDateLabel = $("currentDateLabel");
@@ -60,6 +61,7 @@ const ampm = $("ampm");
 const totalTasksStat = $("totalTasksStat");
 const completedTasksStat = $("completedTasksStat");
 const pendingTasksStat = $("pendingTasksStat");
+const pendingNextDate = $("pendingNextDate");
 
 const filterAll = $("filterAll");
 const filterPending = $("filterPending");
@@ -118,12 +120,12 @@ function getDefaultTasks() {
   const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
 
   return [
-    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow) },
-    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek) },
-    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow) }
+    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "alta" },
+    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "media" },
+    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow), priority: "alta" },
+    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek), priority: "media" },
+    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today), priority: "baja" },
+    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow), priority: "media" }
   ];
 }
 
@@ -134,7 +136,8 @@ function normalizeTask(task) {
     completed: typeof task.completed === "boolean" ? task.completed : Boolean(task.done),
     createdAt: task.createdAt || new Date().toISOString(),
     folder: task.folder || folders[0] || "General",
-    date: task.date || formatDateKey(new Date())
+    date: task.date || formatDateKey(new Date()),
+    priority: task.priority || "media"
   };
 }
 
@@ -179,6 +182,49 @@ function syncInitialSelection() {
   }
 
   const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder) || tasks[0];
+  if (firstTaskForFolder) {
+    selectedDate = firstTaskForFolder.date;
+    const [year, month] = firstTaskForFolder.date.split("-").map(Number);
+    currentDate = new Date(year, month - 1, 1);
+  }
+}
+
+function getVisibleTasksForFolder(folder) {
+  const query = searchInput.value.trim().toLowerCase();
+
+  return tasks.filter((task) => {
+    const matchesFolder = task.folder === folder;
+    const matchesDate = task.date === selectedDate;
+    const matchesQuery =
+      !query ||
+      task.title.toLowerCase().includes(query) ||
+      task.folder.toLowerCase().includes(query);
+    const matchesStatus =
+      currentFilter === "all" ||
+      (currentFilter === "pending" && !task.completed) ||
+      (currentFilter === "completed" && task.completed);
+
+    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
+  });
+}
+
+function getFolderTaskCount(folder) {
+  return getVisibleTasksForFolder(folder).length;
+}
+
+function syncDateForSelectedFolder(preferredDate = selectedDate) {
+  const hasTasksOnPreferredDate = tasks.some(
+    (task) => task.folder === selectedFolder && task.date === preferredDate
+  );
+
+  if (hasTasksOnPreferredDate) {
+    selectedDate = preferredDate;
+    const [year, month] = preferredDate.split("-").map(Number);
+    currentDate = new Date(year, month - 1, 1);
+    return;
+  }
+
+  const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder);
   if (firstTaskForFolder) {
     selectedDate = firstTaskForFolder.date;
     const [year, month] = firstTaskForFolder.date.split("-").map(Number);
@@ -245,7 +291,16 @@ function updateSelectedDateLabels() {
 function updateStats() {
   totalTasksStat.textContent = String(tasks.length);
   completedTasksStat.textContent = String(tasks.filter((task) => task.completed).length);
-  pendingTasksStat.textContent = String(tasks.filter((task) => !task.completed).length);
+  const pendingTasks = tasks.filter((task) => !task.completed);
+  pendingTasksStat.textContent = String(pendingTasks.length);
+
+  if (!pendingTasks.length) {
+    pendingNextDate.textContent = "Sin fecha pendiente";
+    return;
+  }
+
+  const nextPendingTask = [...pendingTasks].sort((a, b) => a.date.localeCompare(b.date))[0];
+  pendingNextDate.textContent = `Próxima: ${formatDisplayDate(nextPendingTask.date)}`;
 }
 
 function updateFilterButtons() {
@@ -282,14 +337,15 @@ function getFilteredTasks() {
   });
 }
 
-function addTask(title, folder, date) {
+function addTask(title, folder, date, priority = "media") {
   tasks.unshift({
     id: crypto.randomUUID(),
     title,
     completed: false,
     createdAt: new Date().toISOString(),
     folder,
-    date
+    date,
+    priority
   });
 
   saveTasks();
@@ -357,6 +413,7 @@ function openTaskModal(task = null) {
   });
 
   taskFolderSelect.value = task ? task.folder : selectedFolder;
+  taskPrioritySelect.value = task ? task.priority : "media";
   updateSelectedDateLabels();
   openModal(modal);
   taskInput.focus();
@@ -463,7 +520,7 @@ function renderFolders() {
         <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-800">📁</span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-extrabold">${folder}</span>
-          <span class="block text-xs font-medium text-slate-400">${tasks.filter((task) => task.folder === folder).length} tareas</span>
+          <span class="block text-xs font-medium text-slate-400">${getFolderTaskCount(folder)} tareas visibles</span>
         </span>
       </span>
     `;
@@ -486,7 +543,10 @@ function renderFolders() {
     button.append(label, actions);
     button.addEventListener("click", () => {
       selectedFolder = folder;
+      syncDateForSelectedFolder(selectedDate);
+      updateSelectedDateLabels();
       renderFolders();
+      renderCalendar();
       renderTasks();
     });
 
@@ -519,6 +579,7 @@ function createTaskRow(task) {
   const checkbox = rowNode.querySelector("[data-task-checkbox]");
   const title = rowNode.querySelector("[data-task-title]");
   const meta = rowNode.querySelector("[data-task-meta]");
+  const priority = rowNode.querySelector("[data-task-priority]");
   const removeButton = rowNode.querySelector("[data-task-delete]");
 
   checkbox.checked = task.completed;
@@ -530,6 +591,15 @@ function createTaskRow(task) {
 
   title.textContent = task.title;
   meta.textContent = `${task.completed ? "Completada" : "Pendiente"} · ${formatDisplayDate(task.date)}`;
+  priority.textContent = task.priority;
+
+  if (task.priority === "alta") {
+    priority.className = "rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
+  } else if (task.priority === "media") {
+    priority.className = "rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+  } else {
+    priority.className = "rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+  }
 
   if (task.completed) {
     title.classList.add("line-through", "text-slate-400", "dark:text-slate-500");
@@ -699,6 +769,7 @@ taskForm.addEventListener("submit", (event) => {
 
   const title = taskInput.value.trim();
   const folder = taskFolderSelect.value;
+  const priority = taskPrioritySelect.value;
 
   if (!title) {
     taskInput.focus();
@@ -706,9 +777,9 @@ taskForm.addEventListener("submit", (event) => {
   }
 
   if (editingTaskId) {
-    updateTask(editingTaskId, { title, folder, date: selectedDate });
+    updateTask(editingTaskId, { title, folder, date: selectedDate, priority });
   } else {
-    addTask(title, folder, selectedDate);
+    addTask(title, folder, selectedDate, priority);
   }
 
   selectedFolder = folder;
@@ -775,20 +846,26 @@ confirmOk.addEventListener("click", () => {
   closeModal(confirmModal);
 });
 
-searchInput.addEventListener("input", renderTasks);
+searchInput.addEventListener("input", () => {
+  renderFolders();
+  renderTasks();
+});
 
 filterAll.addEventListener("click", () => {
   currentFilter = "all";
+  renderFolders();
   renderTasks();
 });
 
 filterPending.addEventListener("click", () => {
   currentFilter = "pending";
+  renderFolders();
   renderTasks();
 });
 
 filterCompleted.addEventListener("click", () => {
   currentFilter = "completed";
+  renderFolders();
   renderTasks();
 });
 
