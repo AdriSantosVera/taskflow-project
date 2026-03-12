@@ -1,58 +1,348 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registro — Interactividad</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Taskflow Registro</title>
+  <link rel="stylesheet" href="./dist/output.css" />
+
+  <style>
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 23, 42, 0.08), transparent 24%),
+        #f3f6fb;
+    }
+
+    .clock-card {
+      width: 70px;
+      height: 50px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 1.7rem;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .clock-card::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .clock-small {
+      width: 56px;
+      font-size: 1.05rem;
+    }
+  </style>
 </head>
 
-<body>
-  <header class="top">
-    <h1>Registro</h1>
-    <p>App de tareas </p>
-  </header>
+<body class="min-h-screen bg-slate-100 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+  <div class="mx-auto max-w-7xl p-6">
+    <div class="overflow-hidden rounded-[32px] border border-white/70 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900">
+      <header class="border-b border-slate-200/80 bg-white/70 px-6 py-5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/70">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="text-xs font-black uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">TaskFlow Registro</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Panel de tareas con calendario, filtros, carpetas y guardado local.</p>
+          </div>
+          <div class="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            Activo en local
+          </div>
+        </div>
+      </header>
 
-  <main class="wrap">
-    <!-- Formulario (requisito 1) -->
-    <section class="panel">
-      <h2>Nueva tarea</h2>
+      <main class="grid min-h-[720px] grid-cols-1 md:grid-cols-[260px_1fr]">
 
-      <form id="taskForm" class="form">
-        <input
-          id="taskInput"
-          type="text"
-          placeholder="Escribe una tarea…"
-          autocomplete="off"
-          required
-        />
-        <button type="submit">Añadir</button>
-      </form>
+        <aside class="order-2 border-t border-slate-200/80 bg-slate-50/80 p-5 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950 md:order-1 md:border-r md:border-t-0">
+          <div class="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900">
+            <button id="themeBtn" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-sm font-semibold">
+              <span class="flex items-center gap-2">
+                <span id="themeIcon">☀️</span>
+                <span id="themeText">Modo claro</span>
+              </span>
 
-      <!-- Busqueda -->
+              <span class="relative h-6 w-11 rounded-full bg-slate-200 transition-colors duration-300 dark:bg-slate-700">
+                <span
+                  id="themeKnob"
+                  class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300"
+                ></span>
+              </span>
+            </button>
+          </div>
+
+          <section class="mt-7">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-extrabold text-slate-700 dark:text-slate-200">Mis Carpetas</h3>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Si quieres editar una carpeta, desliza hacia la derecha.</p>
+              </div>
+              <button
+                id="addFolderBtn"
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-base font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                aria-label="Añadir carpeta"
+              >
+                +
+              </button>
+            </div>
+            <div id="folders" class="mt-3 space-y-2"></div>
+          </section>
+
+          <section class="mt-7">
+            <h3 class="text-sm font-extrabold text-slate-700 dark:text-slate-200">Calendario</h3>
+
+            <div class="mt-3 rounded-[28px] bg-slate-900 p-4 text-white shadow-[0_20px_40px_rgba(15,23,42,0.28)] transition-colors duration-300 dark:bg-slate-800 dark:text-slate-100" style="background: linear-gradient(180deg, #0f172a 0%, #0b1735 100%);">
+              <div class="mb-4 flex items-center justify-between gap-2">
+                <button id="prevMonth" class="rounded-md px-2 py-1 text-sm font-bold hover:bg-white/10">‹</button>
+                <div class="flex items-center gap-2">
+                  <div id="calendarTitle" class="text-sm font-extrabold">—</div>
+                  <button
+                    id="todayBtn"
+                    type="button"
+                    class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
+                  >
+                    Hoy
+                  </button>
+                </div>
+                <button id="nextMonth" class="rounded-md px-2 py-1 text-sm font-bold hover:bg-white/10">›</button>
+              </div>
+
+              <div class="mb-3 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] opacity-60">
+                <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
+              </div>
+
+              <div id="calendarGrid" class="grid grid-cols-7 gap-2 text-center text-[11px]"></div>
+            </div>
+          </section>
+
+          <section class="mt-7">
+            <h2 class="text-sm font-extrabold text-slate-700 dark:text-slate-200">Estadísticas</h2>
+            <div class="mt-3 grid grid-cols-3 gap-2">
+              <article class="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Total</p>
+                <p id="totalTasksStat" class="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">0</p>
+              </article>
+              <article class="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Completadas</p>
+                <p id="completedTasksStat" class="mt-1 text-xl font-black text-emerald-600 dark:text-emerald-400">0</p>
+              </article>
+              <article class="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Pendientes</p>
+                <p id="pendingTasksStat" class="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">0</p>
+              </article>
+            </div>
+          </section>
+        </aside>
+
+        <section class="order-1 p-6 md:order-2">
+          <div class="border-b border-slate-200 pb-5 transition-colors duration-300 dark:border-slate-800">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+              <h1 class="text-2xl font-black tracking-tight">Mis Tareas</h1>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Selecciona un día, filtra por carpeta y gestiona tu trabajo desde una sola vista.
+              </p>
+              </div>
+
+              <div class="flex items-center gap-2 self-start lg:self-auto">
+                <div class="flex items-center gap-2">
+                  <div id="hh" class="clock-card">10</div>
+                  <div id="mm" class="clock-card">45</div>
+                  <div id="ampm" class="clock-card clock-small">AM</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 flex flex-col gap-3">
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                  <span class="text-base">📅</span>
+                  <span id="selectedDateLabel" class="font-extrabold text-slate-800 dark:text-slate-100">—</span>
+                </div>
+
+                <button
+                  id="addBtn"
+                  type="button"
+                  class="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 active:translate-y-0 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  + Añadir Tarea
+                </button>
+              </div>
+
+              <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
+                <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950">
+                <span class="text-slate-400">🔍</span>
+                <input
+                  id="search"
+                  placeholder="Buscar tarea o carpeta"
+                  class="w-full bg-transparent text-sm outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/30"
+                />
+              </div>
+                <div class="flex flex-wrap gap-2" role="group" aria-label="Filtros de tareas">
+                  <button id="filterAll" type="button" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">Todas</button>
+                  <button id="filterPending" type="button" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">Pendientes</button>
+                  <button id="filterCompleted" type="button" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">Completadas</button>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button id="completeAllBtn" type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
+                  Marcar todas
+                </button>
+                <button id="clearCompletedBtn" type="button" class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-red-950/30 dark:hover:text-red-300">
+                  Borrar completadas
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="tasksWrap" class="mt-6 space-y-4"></div>
+        </section>
+      </main>
+
+      <footer class="border-t border-slate-200/80 bg-white/60 px-6 py-4 text-sm text-slate-500 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+        TaskFlow organiza tareas con HTML semántico, JavaScript, LocalStorage, modo oscuro y diseño responsive.
+      </footer>
+
+    </div>
+  </div>
+
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <form id="taskForm" class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl transition-colors duration-300 dark:bg-slate-900">
+      <h3 id="taskModalTitle" class="text-lg font-black">Nueva tarea</h3>
+
+      <label for="taskInput" class="mt-4 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+        Título de la tarea
+      </label>
       <input
-        id="searchInput"
-        class="search"
-        type="text"
-        placeholder="Buscar tareas "
-        autocomplete="off"
+        id="taskInput"
+        name="taskTitle"
+        placeholder="Escribe la tarea"
+        class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-950"
       />
 
-    </section>
+      <div class="mt-4 space-y-3">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+          <label for="taskFolderSelect" class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            Carpeta
+          </label>
+          <select
+            id="taskFolderSelect"
+            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+          ></select>
+        </div>
 
-    <!-- Lista (DOM) -->
-    <section class="panel">
-      <div class="row">
-        <h2>Lista</h2>
-        <span id="count" class="count">0</span>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+          Fecha seleccionada:
+          <span id="currentDateLabel" class="font-bold text-slate-800 dark:text-slate-100">—</span>
+        </div>
       </div>
 
-      <ul id="taskList" class="list"></ul>
+      <div class="mt-5 flex justify-end gap-2">
+        <button
+          id="cancelBtn"
+          type="button"
+          class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+        >
+          Cancelar
+        </button>
 
-      <div id="empty" class="empty">No hay tareas todavía.</div>
-    </section>
-  </main>
+        <button
+          id="saveBtn"
+          type="submit"
+          class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+        >
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
 
-  <script src="app.js" defer></script>
+  <div id="folderModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl transition-colors duration-300 dark:bg-slate-900">
+      <h3 id="folderModalTitle" class="text-lg font-black">Nueva carpeta</h3>
+
+      <input
+        id="folderInput"
+        placeholder="Nombre de la carpeta"
+        class="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-950"
+      />
+
+      <p class="mt-3 text-sm text-slate-500 dark:text-slate-400">Desliza una carpeta a la derecha para cambiarle el nombre.</p>
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button
+          id="folderCancelBtn"
+          class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+        >
+          Cancelar
+        </button>
+
+        <button
+          id="folderSaveBtn"
+          class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl transition-colors duration-300 dark:bg-slate-900">
+      <h3 id="confirmTitle" class="text-lg font-black">Eliminar tarea</h3>
+      <p id="confirmText" class="mt-3 whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">—</p>
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button
+          id="confirmCancel"
+          class="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+        >
+          Cancelar
+        </button>
+
+        <button
+          id="confirmOk"
+          class="rounded-2xl bg-red-600 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-red-500"
+        >
+          Sí, borrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <template id="taskTemplate">
+    <div class="relative overflow-hidden rounded-2xl">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-700 opacity-0 transition-opacity dark:text-emerald-400" data-task-edit-hint>
+        Editar
+      </div>
+      <div class="relative z-10 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition-transform duration-150 dark:border-slate-800 dark:bg-slate-900" data-task-row>
+        <div class="flex min-w-0 items-center gap-3">
+          <input type="checkbox" class="h-5 w-5 accent-slate-900 dark:accent-white" data-task-checkbox />
+          <div class="min-w-0">
+            <span class="block truncate text-sm font-semibold" data-task-title></span>
+            <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400" data-task-meta></span>
+          </div>
+        </div>
+        <button type="button" class="rounded-xl px-2 py-1 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Eliminar tarea" data-task-delete>🗑</button>
+      </div>
+    </div>
+  </template>
+
+  <script src="./app.js"></script>
 </body>
 </html>
