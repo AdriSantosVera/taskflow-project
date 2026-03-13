@@ -80,9 +80,9 @@ const styles = {
   folderButton:
     "relative z-10 flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition will-change-transform",
   folderButtonActive:
-    "border-sky-200 bg-white text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-50",
+    "border-sky-200 bg-white text-slate-950 shadow-sm dark:border-sky-700 dark:bg-slate-800 dark:text-white",
   folderButtonIdle:
-    "border-slate-200/80 bg-white/90 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800",
+    "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
   folderEditHint:
     "hidden",
   emptyState:
@@ -144,9 +144,26 @@ function normalizeTask(task) {
 function loadTasks() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!Array.isArray(saved) || !saved.length) {
+    function loadTasks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+
+    if (raw === null) {
       return getDefaultTasks();
     }
+
+    const saved = JSON.parse(raw);
+
+    if (!Array.isArray(saved)) {
+      return getDefaultTasks();
+    }
+
+    return saved.map(normalizeTask);
+  } catch {
+    return getDefaultTasks();
+  }
+}
+
 
     return saved.map(normalizeTask);
   } catch {
@@ -501,6 +518,8 @@ function renderFolders() {
   foldersDiv.innerHTML = "";
 
   folders.forEach((folder) => {
+    const isActive = folder === selectedFolder;
+
     const wrapper = document.createElement("div");
     wrapper.className = "relative overflow-hidden rounded-xl";
 
@@ -510,17 +529,25 @@ function renderFolders() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `${styles.folderButton} ${
-      folder === selectedFolder ? styles.folderButtonActive : styles.folderButtonIdle
+      isActive ? styles.folderButtonActive : styles.folderButtonIdle
     }`;
+
+    const countClass = isActive
+      ? "block text-xs font-medium text-slate-600 dark:text-slate-300"
+      : "block text-xs font-medium text-slate-400 dark:text-slate-400";
+
+    const iconClass = isActive
+      ? "flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-700"
+      : "flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-800";
 
     const label = document.createElement("span");
     label.className = "truncate";
     label.innerHTML = `
       <span class="flex items-center gap-3">
-        <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-800">📁</span>
+        <span class="${iconClass}">📁</span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-extrabold">${folder}</span>
-          <span class="block text-xs font-medium text-slate-400">${getFolderTaskCount(folder)} tareas visibles</span>
+          <span class="${countClass}">${getFolderTaskCount(folder)} tareas visibles</span>
         </span>
       </span>
     `;
