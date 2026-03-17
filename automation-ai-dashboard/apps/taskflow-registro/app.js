@@ -70,6 +70,7 @@ const completeAllBtn = $("completeAllBtn");
 const clearCompletedBtn = $("clearCompletedBtn");
 
 const taskTemplate = $("taskTemplate");
+const bgParticles = $("bgParticles");
 
 const monthNames = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -80,9 +81,9 @@ const styles = {
   folderButton:
     "relative z-10 flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition will-change-transform",
   folderButtonActive:
-    "border-sky-200 bg-white text-slate-950 shadow-sm dark:border-sky-700 dark:bg-slate-800 dark:text-white",
+    "border-sky-200 bg-white text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
   folderButtonIdle:
-    "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
+    "border-slate-200/80 bg-white/90 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
   folderEditHint:
     "hidden",
   emptyState:
@@ -143,27 +144,15 @@ function normalizeTask(task) {
 
 function loadTasks() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    function loadTasks() {
-  try {
     const raw = localStorage.getItem(STORAGE_KEY);
-
     if (raw === null) {
       return getDefaultTasks();
     }
 
     const saved = JSON.parse(raw);
-
     if (!Array.isArray(saved)) {
       return getDefaultTasks();
     }
-
-    return saved.map(normalizeTask);
-  } catch {
-    return getDefaultTasks();
-  }
-}
-
 
     return saved.map(normalizeTask);
   } catch {
@@ -519,7 +508,6 @@ function renderFolders() {
 
   folders.forEach((folder) => {
     const isActive = folder === selectedFolder;
-
     const wrapper = document.createElement("div");
     wrapper.className = "relative overflow-hidden rounded-xl";
 
@@ -532,22 +520,20 @@ function renderFolders() {
       isActive ? styles.folderButtonActive : styles.folderButtonIdle
     }`;
 
-    const countClass = isActive
-      ? "block text-xs font-medium text-slate-600 dark:text-slate-300"
-      : "block text-xs font-medium text-slate-400 dark:text-slate-400";
-
-    const iconClass = isActive
-      ? "flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-700"
-      : "flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-800";
-
     const label = document.createElement("span");
     label.className = "truncate";
+    const countClass = isActive
+      ? "text-slate-600 dark:text-slate-300"
+      : "text-slate-400 dark:text-slate-400";
+    const iconClass = isActive
+      ? "bg-sky-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100"
+      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-100";
     label.innerHTML = `
       <span class="flex items-center gap-3">
-        <span class="${iconClass}">📁</span>
+        <span class="flex h-9 w-9 items-center justify-center rounded-2xl ${iconClass}">📁</span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-extrabold">${folder}</span>
-          <span class="${countClass}">${getFolderTaskCount(folder)} tareas visibles</span>
+          <span class="block text-xs font-medium ${countClass}">${getFolderTaskCount(folder)} tareas visibles</span>
         </span>
       </span>
     `;
@@ -754,6 +740,91 @@ function updateClock() {
   ampm.textContent = meridian;
 }
 
+function initParticles() {
+  if (!bgParticles) return;
+
+  const ctx = bgParticles.getContext("2d");
+  if (!ctx) return;
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const state = {
+    width: 0,
+    height: 0,
+    particles: [],
+    animationId: null
+  };
+
+  const colors = {
+    light: "rgba(37, 99, 235, 0.35)",
+    dark: "rgba(56, 189, 248, 0.35)"
+  };
+
+  const resize = () => {
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    bgParticles.width = Math.floor(state.width * window.devicePixelRatio);
+    bgParticles.height = Math.floor(state.height * window.devicePixelRatio);
+    ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+    const targetCount = Math.min(90, Math.max(40, Math.floor(state.width / 14)));
+    state.particles = Array.from({ length: targetCount }, () => ({
+      x: Math.random() * state.width,
+      y: Math.random() * state.height,
+      r: 1 + Math.random() * 2.6,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      alpha: 0.15 + Math.random() * 0.35
+    }));
+  };
+
+  const draw = () => {
+    ctx.clearRect(0, 0, state.width, state.height);
+    const isDark = document.documentElement.classList.contains("dark");
+    const baseColor = isDark ? colors.dark : colors.light;
+
+    for (const particle of state.particles) {
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+
+      if (particle.x < -20) particle.x = state.width + 20;
+      if (particle.x > state.width + 20) particle.x = -20;
+      if (particle.y < -20) particle.y = state.height + 20;
+      if (particle.y > state.height + 20) particle.y = -20;
+
+      ctx.beginPath();
+      ctx.fillStyle = baseColor.replace("0.35", particle.alpha.toFixed(2));
+      ctx.arc(particle.x, particle.y, particle.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    state.animationId = window.requestAnimationFrame(draw);
+  };
+
+  const stop = () => {
+    if (state.animationId) {
+      window.cancelAnimationFrame(state.animationId);
+      state.animationId = null;
+    }
+  };
+
+  resize();
+
+  if (!prefersReducedMotion) {
+    draw();
+  } else {
+    ctx.clearRect(0, 0, state.width, state.height);
+  }
+
+  window.addEventListener("resize", () => {
+    stop();
+    resize();
+    if (!prefersReducedMotion) {
+      draw();
+    }
+  });
+}
+
 function completeAllVisibleTasks() {
   const visibleTaskIds = getFilteredTasks()
     .filter((task) => !task.completed)
@@ -934,5 +1005,6 @@ renderFolders();
 renderTasks();
 renderCalendar();
 updateClock();
+initParticles();
 
 setInterval(updateClock, 60_000);

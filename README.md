@@ -1,57 +1,89 @@
 # Bootcamp Project
 
-Este repositorio contiene dos ejercicios desarrollados durante el bootcamp.
+Repositorio que reúne dos proyectos desarrollados durante el bootcamp, enfocados en maquetación web, diseño responsive y desarrollo frontend con JavaScript.
 
----
+## Proyectos
 
-## 1. Página web Solvion IA
+### 1. Solvion IA
 
-Desarrollo de una página web estática para una empresa ficticia llamada Solvion IA.
+Landing page estática creada para una empresa ficticia especializada en inteligencia artificial.
 
-### Tecnologías
-- HTML
-- CSS
+#### Tecnologías
+- HTML5
+- CSS3
 
-### Características
-
+#### Características
 - Estructura HTML semántica
-- Diseño con CSS
+- Diseño visual con CSS
 - Layout con Flexbox y Grid
-- Secciones: servicios, proyectos y contacto
-- Estilos visuales y efectos hover
+- Secciones de presentación, servicios, proyectos y contacto
+- Estilos personalizados y efectos hover
 
 ---
 
-## 2. Taskflow Registro
+### 2. TaskFlow Registro
 
-Aplicación web para gestión de tareas desarrollada con JavaScript y Tailwind.
+Aplicación web de gestión de tareas desarrollada con JavaScript y Tailwind CSS.
 
-### Tecnologías
-
-- HTML
-- JavaScript
+#### Tecnologías
+- HTML5
+- JavaScript vanilla
 - Tailwind CSS
 - LocalStorage
 
-### Funcionalidades
-
-- Añadir tareas
-- Marcar tareas completadas
+#### Funcionalidades
+- Crear tareas
+- Editar tareas
+- Marcar tareas como completadas
 - Eliminar tareas
 - Organización por carpetas
-- Búsqueda de tareas
-- Calendario
-- Reloj
+- Calendario para asignar fecha
+- Prioridad de tareas
+- Búsqueda por texto
+- Filtros por estado: todas, pendientes y completadas
+- Estadísticas de tareas
 - Modo claro y oscuro
+- Persistencia de datos con LocalStorage
+- Diseño responsive para escritorio y móvil
 
----
+#### Cambios recientes
+- Ajuste del layout móvil para reducir densidad visual (botones y filtros compactos, calendario con menos separación).
+- Estadísticas en una sola columna en pantallas pequeñas para mejorar la legibilidad.
+- Microajustes de paddings y tipografías en móviles.
+
+## Objetivos del proyecto
+
+Este repositorio refleja el trabajo realizado durante el bootcamp y la aplicación práctica de:
+- HTML semántico
+- CSS y diseño visual
+- Layout responsive
+- Manipulación del DOM con JavaScript
+- Persistencia de datos en el navegador
+- Organización de interfaces interactivas
+- Despliegue de aplicaciones frontend
+
+## Testing manual
+
+Se han realizado pruebas manuales sobre la aplicación TaskFlow Registro para verificar su funcionamiento:
+
+- Lista vacía: la interfaz muestra un estado vacío sin errores.
+- Crear tarea sin título: la tarea no se guarda y el foco permanece en el campo de entrada.
+- Crear tarea con título largo: el contenido se mantiene dentro del diseño sin romper la interfaz.
+- Marcar tareas como completadas: el estado cambia correctamente y las estadísticas se actualizan.
+- Eliminar tareas: las tareas desaparecen de la lista y se actualiza la persistencia.
+- Persistencia: al recargar la página, los datos permanecen guardados en LocalStorage.
+- Filtros: las vistas de todas, pendientes y completadas funcionan correctamente.
+- Búsqueda: el filtrado por texto devuelve resultados coherentes.
+- Calendario: las tareas se asocian correctamente a la fecha seleccionada.
+- Carpetas: las tareas se organizan y muestran por carpeta.
+- Prioridad: cada tarea puede guardar y mostrar su nivel de prioridad.
+- Responsive: la aplicación se ha probado en escritorio y móvil.
+- Modo oscuro: se ha comprobado la legibilidad general de la interfaz.
 
 ## Despliegue
 
-Aplicación desplegada en Vercel.
+### Vercel
+[Ver proyecto en Vercel](https://taskflow-registro.vercel.app/)
 
-Vercel:
-https://tu-url.vercel.app
-
-GitHub:
-https://github.com/tuusuario/bootcamp-project
+### GitHub
+[Ver repositorio en GitHub](https://github.com/AdriSantosVera/taskflow-project)
