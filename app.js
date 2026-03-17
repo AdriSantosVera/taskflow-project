@@ -30,6 +30,7 @@ const taskForm = $("taskForm");
 const taskModalTitle = $("taskModalTitle");
 const taskInput = $("taskInput");
 const taskFolderSelect = $("taskFolderSelect");
+const taskPrioritySelect = $("taskPrioritySelect");
 const cancelBtn = $("cancelBtn");
 const saveBtn = $("saveBtn");
 const currentDateLabel = $("currentDateLabel");
@@ -60,6 +61,7 @@ const ampm = $("ampm");
 const totalTasksStat = $("totalTasksStat");
 const completedTasksStat = $("completedTasksStat");
 const pendingTasksStat = $("pendingTasksStat");
+const pendingNextDate = $("pendingNextDate");
 
 const filterAll = $("filterAll");
 const filterPending = $("filterPending");
@@ -68,6 +70,7 @@ const completeAllBtn = $("completeAllBtn");
 const clearCompletedBtn = $("clearCompletedBtn");
 
 const taskTemplate = $("taskTemplate");
+const bgParticles = $("bgParticles");
 
 const monthNames = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -78,9 +81,9 @@ const styles = {
   folderButton:
     "relative z-10 flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition will-change-transform",
   folderButtonActive:
-    "border-sky-200 bg-white text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-50",
+    "border-sky-200 bg-white text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
   folderButtonIdle:
-    "border-slate-200/80 bg-white/90 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800",
+    "border-slate-200/80 bg-white/90 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
   folderEditHint:
     "hidden",
   emptyState:
@@ -118,12 +121,12 @@ function getDefaultTasks() {
   const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
 
   return [
-    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow) },
-    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek) },
-    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today) },
-    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow) }
+    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "alta" },
+    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "media" },
+    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow), priority: "alta" },
+    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek), priority: "media" },
+    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today), priority: "baja" },
+    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow), priority: "media" }
   ];
 }
 
@@ -134,14 +137,20 @@ function normalizeTask(task) {
     completed: typeof task.completed === "boolean" ? task.completed : Boolean(task.done),
     createdAt: task.createdAt || new Date().toISOString(),
     folder: task.folder || folders[0] || "General",
-    date: task.date || formatDateKey(new Date())
+    date: task.date || formatDateKey(new Date()),
+    priority: task.priority || "media"
   };
 }
 
 function loadTasks() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!Array.isArray(saved) || !saved.length) {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === null) {
+      return getDefaultTasks();
+    }
+
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) {
       return getDefaultTasks();
     }
 
@@ -179,6 +188,49 @@ function syncInitialSelection() {
   }
 
   const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder) || tasks[0];
+  if (firstTaskForFolder) {
+    selectedDate = firstTaskForFolder.date;
+    const [year, month] = firstTaskForFolder.date.split("-").map(Number);
+    currentDate = new Date(year, month - 1, 1);
+  }
+}
+
+function getVisibleTasksForFolder(folder) {
+  const query = searchInput.value.trim().toLowerCase();
+
+  return tasks.filter((task) => {
+    const matchesFolder = task.folder === folder;
+    const matchesDate = task.date === selectedDate;
+    const matchesQuery =
+      !query ||
+      task.title.toLowerCase().includes(query) ||
+      task.folder.toLowerCase().includes(query);
+    const matchesStatus =
+      currentFilter === "all" ||
+      (currentFilter === "pending" && !task.completed) ||
+      (currentFilter === "completed" && task.completed);
+
+    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
+  });
+}
+
+function getFolderTaskCount(folder) {
+  return getVisibleTasksForFolder(folder).length;
+}
+
+function syncDateForSelectedFolder(preferredDate = selectedDate) {
+  const hasTasksOnPreferredDate = tasks.some(
+    (task) => task.folder === selectedFolder && task.date === preferredDate
+  );
+
+  if (hasTasksOnPreferredDate) {
+    selectedDate = preferredDate;
+    const [year, month] = preferredDate.split("-").map(Number);
+    currentDate = new Date(year, month - 1, 1);
+    return;
+  }
+
+  const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder);
   if (firstTaskForFolder) {
     selectedDate = firstTaskForFolder.date;
     const [year, month] = firstTaskForFolder.date.split("-").map(Number);
@@ -245,7 +297,16 @@ function updateSelectedDateLabels() {
 function updateStats() {
   totalTasksStat.textContent = String(tasks.length);
   completedTasksStat.textContent = String(tasks.filter((task) => task.completed).length);
-  pendingTasksStat.textContent = String(tasks.filter((task) => !task.completed).length);
+  const pendingTasks = tasks.filter((task) => !task.completed);
+  pendingTasksStat.textContent = String(pendingTasks.length);
+
+  if (!pendingTasks.length) {
+    pendingNextDate.textContent = "Sin fecha pendiente";
+    return;
+  }
+
+  const nextPendingTask = [...pendingTasks].sort((a, b) => a.date.localeCompare(b.date))[0];
+  pendingNextDate.textContent = `Próxima: ${formatDisplayDate(nextPendingTask.date)}`;
 }
 
 function updateFilterButtons() {
@@ -282,14 +343,15 @@ function getFilteredTasks() {
   });
 }
 
-function addTask(title, folder, date) {
+function addTask(title, folder, date, priority = "media") {
   tasks.unshift({
     id: crypto.randomUUID(),
     title,
     completed: false,
     createdAt: new Date().toISOString(),
     folder,
-    date
+    date,
+    priority
   });
 
   saveTasks();
@@ -357,6 +419,7 @@ function openTaskModal(task = null) {
   });
 
   taskFolderSelect.value = task ? task.folder : selectedFolder;
+  taskPrioritySelect.value = task ? task.priority : "media";
   updateSelectedDateLabels();
   openModal(modal);
   taskInput.focus();
@@ -444,6 +507,7 @@ function renderFolders() {
   foldersDiv.innerHTML = "";
 
   folders.forEach((folder) => {
+    const isActive = folder === selectedFolder;
     const wrapper = document.createElement("div");
     wrapper.className = "relative overflow-hidden rounded-xl";
 
@@ -453,17 +517,23 @@ function renderFolders() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `${styles.folderButton} ${
-      folder === selectedFolder ? styles.folderButtonActive : styles.folderButtonIdle
+      isActive ? styles.folderButtonActive : styles.folderButtonIdle
     }`;
 
     const label = document.createElement("span");
     label.className = "truncate";
+    const countClass = isActive
+      ? "text-slate-600 dark:text-slate-300"
+      : "text-slate-400 dark:text-slate-400";
+    const iconClass = isActive
+      ? "bg-sky-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100"
+      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-100";
     label.innerHTML = `
       <span class="flex items-center gap-3">
-        <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-base dark:bg-slate-800">📁</span>
+        <span class="flex h-9 w-9 items-center justify-center rounded-2xl ${iconClass}">📁</span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-extrabold">${folder}</span>
-          <span class="block text-xs font-medium text-slate-400">${tasks.filter((task) => task.folder === folder).length} tareas</span>
+          <span class="block text-xs font-medium ${countClass}">${getFolderTaskCount(folder)} tareas visibles</span>
         </span>
       </span>
     `;
@@ -486,7 +556,10 @@ function renderFolders() {
     button.append(label, actions);
     button.addEventListener("click", () => {
       selectedFolder = folder;
+      syncDateForSelectedFolder(selectedDate);
+      updateSelectedDateLabels();
       renderFolders();
+      renderCalendar();
       renderTasks();
     });
 
@@ -519,6 +592,7 @@ function createTaskRow(task) {
   const checkbox = rowNode.querySelector("[data-task-checkbox]");
   const title = rowNode.querySelector("[data-task-title]");
   const meta = rowNode.querySelector("[data-task-meta]");
+  const priority = rowNode.querySelector("[data-task-priority]");
   const removeButton = rowNode.querySelector("[data-task-delete]");
 
   checkbox.checked = task.completed;
@@ -530,6 +604,15 @@ function createTaskRow(task) {
 
   title.textContent = task.title;
   meta.textContent = `${task.completed ? "Completada" : "Pendiente"} · ${formatDisplayDate(task.date)}`;
+  priority.textContent = task.priority;
+
+  if (task.priority === "alta") {
+    priority.className = "rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
+  } else if (task.priority === "media") {
+    priority.className = "rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+  } else {
+    priority.className = "rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+  }
 
   if (task.completed) {
     title.classList.add("line-through", "text-slate-400", "dark:text-slate-500");
@@ -657,6 +740,91 @@ function updateClock() {
   ampm.textContent = meridian;
 }
 
+function initParticles() {
+  if (!bgParticles) return;
+
+  const ctx = bgParticles.getContext("2d");
+  if (!ctx) return;
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const state = {
+    width: 0,
+    height: 0,
+    particles: [],
+    animationId: null
+  };
+
+  const colors = {
+    light: "rgba(37, 99, 235, 0.35)",
+    dark: "rgba(56, 189, 248, 0.35)"
+  };
+
+  const resize = () => {
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    bgParticles.width = Math.floor(state.width * window.devicePixelRatio);
+    bgParticles.height = Math.floor(state.height * window.devicePixelRatio);
+    ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+
+    const targetCount = Math.min(90, Math.max(40, Math.floor(state.width / 14)));
+    state.particles = Array.from({ length: targetCount }, () => ({
+      x: Math.random() * state.width,
+      y: Math.random() * state.height,
+      r: 1 + Math.random() * 2.6,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      alpha: 0.15 + Math.random() * 0.35
+    }));
+  };
+
+  const draw = () => {
+    ctx.clearRect(0, 0, state.width, state.height);
+    const isDark = document.documentElement.classList.contains("dark");
+    const baseColor = isDark ? colors.dark : colors.light;
+
+    for (const particle of state.particles) {
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+
+      if (particle.x < -20) particle.x = state.width + 20;
+      if (particle.x > state.width + 20) particle.x = -20;
+      if (particle.y < -20) particle.y = state.height + 20;
+      if (particle.y > state.height + 20) particle.y = -20;
+
+      ctx.beginPath();
+      ctx.fillStyle = baseColor.replace("0.35", particle.alpha.toFixed(2));
+      ctx.arc(particle.x, particle.y, particle.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    state.animationId = window.requestAnimationFrame(draw);
+  };
+
+  const stop = () => {
+    if (state.animationId) {
+      window.cancelAnimationFrame(state.animationId);
+      state.animationId = null;
+    }
+  };
+
+  resize();
+
+  if (!prefersReducedMotion) {
+    draw();
+  } else {
+    ctx.clearRect(0, 0, state.width, state.height);
+  }
+
+  window.addEventListener("resize", () => {
+    stop();
+    resize();
+    if (!prefersReducedMotion) {
+      draw();
+    }
+  });
+}
+
 function completeAllVisibleTasks() {
   const visibleTaskIds = getFilteredTasks()
     .filter((task) => !task.completed)
@@ -699,6 +867,7 @@ taskForm.addEventListener("submit", (event) => {
 
   const title = taskInput.value.trim();
   const folder = taskFolderSelect.value;
+  const priority = taskPrioritySelect.value;
 
   if (!title) {
     taskInput.focus();
@@ -706,9 +875,9 @@ taskForm.addEventListener("submit", (event) => {
   }
 
   if (editingTaskId) {
-    updateTask(editingTaskId, { title, folder, date: selectedDate });
+    updateTask(editingTaskId, { title, folder, date: selectedDate, priority });
   } else {
-    addTask(title, folder, selectedDate);
+    addTask(title, folder, selectedDate, priority);
   }
 
   selectedFolder = folder;
@@ -775,20 +944,26 @@ confirmOk.addEventListener("click", () => {
   closeModal(confirmModal);
 });
 
-searchInput.addEventListener("input", renderTasks);
+searchInput.addEventListener("input", () => {
+  renderFolders();
+  renderTasks();
+});
 
 filterAll.addEventListener("click", () => {
   currentFilter = "all";
+  renderFolders();
   renderTasks();
 });
 
 filterPending.addEventListener("click", () => {
   currentFilter = "pending";
+  renderFolders();
   renderTasks();
 });
 
 filterCompleted.addEventListener("click", () => {
   currentFilter = "completed";
+  renderFolders();
   renderTasks();
 });
 
@@ -830,5 +1005,6 @@ renderFolders();
 renderTasks();
 renderCalendar();
 updateClock();
+initParticles();
 
 setInterval(updateClock, 60_000);
