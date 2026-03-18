@@ -8,6 +8,8 @@ let selectedFolder = folders[0] || "General";
 let selectedDate = formatDateKey(new Date());
 let currentDate = new Date();
 let currentFilter = "all";
+let currentSort = "none";
+let priorityFilter = "all";
 let pendingDelete = null;
 let editingTaskId = null;
 let editingFolderName = null;
@@ -58,16 +60,15 @@ const hh = $("hh");
 const mm = $("mm");
 const ampm = $("ampm");
 
-const totalTasksStat = $("totalTasksStat");
 const completedTasksStat = $("completedTasksStat");
 const pendingTasksStat = $("pendingTasksStat");
 const pendingNextDate = $("pendingNextDate");
 
-const filterAll = $("filterAll");
-const filterPending = $("filterPending");
-const filterCompleted = $("filterCompleted");
+const statusFilter = $("statusFilter");
 const completeAllBtn = $("completeAllBtn");
 const clearCompletedBtn = $("clearCompletedBtn");
+const sortSelect = $("sortSelect");
+const priorityFilterSelect = $("priorityFilter");
 
 const taskTemplate = $("taskTemplate");
 const bgParticles = $("bgParticles");
@@ -205,12 +206,14 @@ function getVisibleTasksForFolder(folder) {
       !query ||
       task.title.toLowerCase().includes(query) ||
       task.folder.toLowerCase().includes(query);
+    const matchesPriority =
+      priorityFilter === "all" || task.priority === priorityFilter;
     const matchesStatus =
       currentFilter === "all" ||
       (currentFilter === "pending" && !task.completed) ||
       (currentFilter === "completed" && task.completed);
 
-    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
+    return matchesFolder && matchesDate && matchesQuery && matchesPriority && matchesStatus;
   });
 }
 
@@ -295,7 +298,6 @@ function updateSelectedDateLabels() {
 }
 
 function updateStats() {
-  totalTasksStat.textContent = String(tasks.length);
   completedTasksStat.textContent = String(tasks.filter((task) => task.completed).length);
   const pendingTasks = tasks.filter((task) => !task.completed);
   pendingTasksStat.textContent = String(pendingTasks.length);
@@ -309,38 +311,31 @@ function updateStats() {
   pendingNextDate.textContent = `Próxima: ${formatDisplayDate(nextPendingTask.date)}`;
 }
 
-function updateFilterButtons() {
-  const filterMap = [
-    [filterAll, "all"],
-    [filterPending, "pending"],
-    [filterCompleted, "completed"]
-  ];
-
-  filterMap.forEach(([button, value]) => {
-    button.classList.remove(...styles.filterActive.split(" "));
-    if (currentFilter === value) {
-      button.classList.add(...styles.filterActive.split(" "));
-    }
-  });
-}
-
 function getFilteredTasks() {
   const query = searchInput.value.trim().toLowerCase();
 
-  return tasks.filter((task) => {
+  let result = tasks.filter((task) => {
     const matchesFolder = task.folder === selectedFolder;
     const matchesDate = task.date === selectedDate;
     const matchesQuery =
       !query ||
       task.title.toLowerCase().includes(query) ||
       task.folder.toLowerCase().includes(query);
+    const matchesPriority =
+      priorityFilter === "all" || task.priority === priorityFilter;
     const matchesStatus =
       currentFilter === "all" ||
       (currentFilter === "pending" && !task.completed) ||
       (currentFilter === "completed" && task.completed);
 
-    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
+    return matchesFolder && matchesDate && matchesQuery && matchesPriority && matchesStatus;
   });
+
+  if (currentSort === "az") {
+    result = [...result].sort((a, b) => a.title.localeCompare(b.title, "es"));
+  }
+
+  return result;
 }
 
 function addTask(title, folder, date, priority = "media") {
@@ -631,7 +626,6 @@ function createTaskRow(task) {
 function renderTasks() {
   tasksWrap.innerHTML = "";
   updateStats();
-  updateFilterButtons();
 
   const filteredTasks = getFilteredTasks();
 
@@ -949,20 +943,19 @@ searchInput.addEventListener("input", () => {
   renderTasks();
 });
 
-filterAll.addEventListener("click", () => {
-  currentFilter = "all";
+statusFilter.addEventListener("change", () => {
+  currentFilter = statusFilter.value;
   renderFolders();
   renderTasks();
 });
 
-filterPending.addEventListener("click", () => {
-  currentFilter = "pending";
-  renderFolders();
+sortSelect.addEventListener("change", () => {
+  currentSort = sortSelect.value;
   renderTasks();
 });
 
-filterCompleted.addEventListener("click", () => {
-  currentFilter = "completed";
+priorityFilterSelect.addEventListener("change", () => {
+  priorityFilter = priorityFilterSelect.value;
   renderFolders();
   renderTasks();
 });
