@@ -8,6 +8,7 @@ let selectedFolder = folders[0] || "General";
 let selectedDate = formatDateKey(new Date());
 let currentDate = new Date();
 let currentFilter = "all";
+let isDateFilterActive = true;
 let currentSort = "none";
 let priorityFilter = "all";
 let pendingDelete = null;
@@ -20,6 +21,7 @@ const foldersDiv = $("folders");
 const tasksWrap = $("tasksWrap");
 const searchInput = $("search");
 const selectedDateLabel = $("selectedDateLabel");
+const clearDateFilterBtn = $("clearDateFilterBtn");
 
 const themeBtn = $("themeBtn");
 const themeText = $("themeText");
@@ -201,7 +203,7 @@ function getVisibleTasksForFolder(folder) {
 
   return tasks.filter((task) => {
     const matchesFolder = task.folder === folder;
-    const matchesDate = task.date === selectedDate;
+    const matchesDate = !isDateFilterActive || task.date === selectedDate;
     const matchesQuery =
       !query ||
       task.title.toLowerCase().includes(query) ||
@@ -293,8 +295,11 @@ function loadTheme() {
 
 function updateSelectedDateLabels() {
   const formatted = formatDisplayDate(selectedDate);
-  selectedDateLabel.textContent = formatted;
+  selectedDateLabel.textContent = isDateFilterActive ? formatted : "Todas las fechas";
   currentDateLabel.textContent = formatted;
+  if (clearDateFilterBtn) {
+    clearDateFilterBtn.classList.toggle("hidden", !isDateFilterActive);
+  }
 }
 
 function updateStats() {
@@ -316,7 +321,7 @@ function getFilteredTasks() {
 
   let result = tasks.filter((task) => {
     const matchesFolder = task.folder === selectedFolder;
-    const matchesDate = task.date === selectedDate;
+    const matchesDate = !isDateFilterActive || task.date === selectedDate;
     const matchesQuery =
       !query ||
       task.title.toLowerCase().includes(query) ||
@@ -711,7 +716,12 @@ function renderCalendar() {
     }
 
     cell.addEventListener("click", () => {
-      selectedDate = cellDateKey;
+      if (cellDateKey === selectedDate && isDateFilterActive) {
+        isDateFilterActive = false;
+      } else {
+        selectedDate = cellDateKey;
+        isDateFilterActive = true;
+      }
       updateSelectedDateLabels();
       renderCalendar();
       renderTasks();
@@ -986,10 +996,19 @@ todayBtn.addEventListener("click", () => {
   const today = new Date();
   currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
   selectedDate = formatDateKey(today);
+  isDateFilterActive = true;
   updateSelectedDateLabels();
   renderCalendar();
   renderTasks();
 });
+
+if (clearDateFilterBtn) {
+  clearDateFilterBtn.addEventListener("click", () => {
+    isDateFilterActive = false;
+    updateSelectedDateLabels();
+    renderTasks();
+  });
+}
 
 loadTheme();
 syncInitialSelection();
