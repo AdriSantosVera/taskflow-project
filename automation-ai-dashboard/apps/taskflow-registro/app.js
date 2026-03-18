@@ -700,7 +700,7 @@ function renderCalendar() {
       cell.classList.add("text-slate-300", "hover:bg-white/10");
     }
 
-    if (cellDateKey === selectedDate) {
+    if (cellDateKey === selectedDate && isDateFilterActive) {
       cell.classList.add(...styles.selectedCalendarCell.split(" "));
       if (cellDateKey === todayKey) {
         cell.classList.add("bg-sky-300", "text-slate-950", "border-sky-200");
