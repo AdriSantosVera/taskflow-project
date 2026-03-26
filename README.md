@@ -1,60 +1,107 @@
 # Bootcamp Project
 
-Repositorio que reúne dos proyectos desarrollados durante el bootcamp, enfocados en maquetación web, diseño responsive y desarrollo frontend con JavaScript.
+Repositorio con dos entregables del bootcamp: una landing estática y una app completa de tareas con frontend + backend.
 
 ## Proyectos
 
-### 1. Solvion IA
+### Solvion IA
 
-Landing page estática creada para una empresa ficticia especializada en inteligencia artificial.
+Landing page estática para una empresa ficticia de IA.
 
-#### Tecnologías
+Tecnologías:
 - HTML5
 - CSS3
 
-#### Características
-- Estructura HTML semántica
-- Diseño visual con CSS
+Características:
+- HTML semántico
 - Layout con Flexbox y Grid
-- Secciones de presentación, servicios, proyectos y contacto
-- Estilos personalizados y efectos hover
+- Secciones: presentación, servicios, proyectos y contacto
+- Estilos personalizados y hover
 
 ---
 
-### 2. TaskFlow Registro
+### TaskFlow Registro
 
-Aplicación web de gestión de tareas desarrollada con JavaScript y Tailwind CSS.
+Aplicación de gestión de tareas con UI premium y backend REST.
 
-#### Tecnologías
+Tecnologías:
 - HTML5
 - JavaScript vanilla
 - Tailwind CSS
-- LocalStorage
+- Node.js + Express
 
-#### Funcionalidades
-- Crear tareas
-- Editar tareas
-- Marcar tareas como completadas
-- Eliminar tareas
-- Organización por carpetas
-- Calendario para asignar fecha
-- Prioridad de tareas
-- Búsqueda por texto
-- Filtros por estado (selector)
-- Orden alfabético (A-Z)
-- Filtro por prioridad
-- Estadísticas de tareas (completadas y pendientes)
-- Modo claro y oscuro
-- Persistencia de datos con LocalStorage
-- Fondo animado con partículas
-- Diseño responsive para escritorio y móvil
+Funciones clave:
+- CRUD de tareas con fecha, carpeta y prioridad
+- Filtros por estado, prioridad y orden alfabético
+- Calendario interactivo + reloj
+- Modo claro/oscuro
+- Backend REST con validaciones
+- UI responsive y feedback visual (loading/error/toast)
 
-#### Cambios recientes
-- Interfaz más compacta en móvil (botones y filtros ordenados, menos separación vertical).
-- Calendario con ajustes de spacing para mejor legibilidad.
-- Filtros convertidos a selectores (estado, orden y prioridad).
-- Estadísticas simplificadas a dos tarjetas (completadas y pendientes).
-- Fondo con partículas animadas para dar profundidad visual.
+Cambios recientes:
+- UI más compacta en móvil
+- Filtros convertidos a selectores
+- Estadísticas simplificadas
+- Fondo con partículas animadas
+- Frontend conectado a API vía `fetch` (sin LocalStorage)
+
+## Backend TaskFlow
+
+Arquitectura por capas:
+
+```
+server/
+  src/
+    config/
+      env.js
+    controllers/
+      task.controller.js
+    routes/
+      task.routes.js
+    services/
+      task.service.js
+    index.js
+```
+
+Flujo:
+1. **Routes** → mapean rutas HTTP a controladores.
+2. **Controllers** → validan `req.body` y devuelven códigos HTTP correctos.
+3. **Services** → lógica pura en memoria (`tasks = []`), sin dependencia de Express.
+
+Documentación completa del backend en [server/README.md](/Users/adri/Developer/taskflow-project/server/README.md).
+
+### Middlewares
+- `express.json()` para parseo de JSON.
+- `cors()` para habilitar CORS.
+- **Logger académico**: registra método, URL y tiempo de respuesta.
+- **Middleware global de errores**: traduce `NOT_FOUND` a 404 y el resto a 500.
+
+### API REST (ejemplos)
+Base URL: `http://localhost:3000/api/v1/tasks`
+
+**GET /tasks**
+```bash
+curl http://localhost:3000/api/v1/tasks
+```
+
+**POST /tasks**
+```bash
+curl -X POST http://localhost:3000/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Nueva tarea","priority":"media","date":"2026-03-23","folder":"General"}'
+```
+
+**PATCH /tasks/:id**
+```bash
+curl -X PATCH http://localhost:3000/api/v1/tasks/ID \
+  -H "Content-Type: application/json" \
+  -d '{"completed": true}'
+```
+
+**DELETE /tasks/:id**
+```bash
+curl -X DELETE http://localhost:3000/api/v1/tasks/ID
+```
 
 ## Objetivos del proyecto
 
@@ -63,29 +110,15 @@ Este repositorio refleja el trabajo realizado durante el bootcamp y la aplicaci�
 - CSS y diseño visual
 - Layout responsive
 - Manipulación del DOM con JavaScript
-- Persistencia de datos en el navegador
+- Persistencia de datos mediante API
 - Organización de interfaces interactivas
 - Despliegue de aplicaciones frontend
 
-## Testing manual
+## Testing
 
-Se han realizado pruebas manuales sobre la aplicación TaskFlow Registro para verificar su funcionamiento:
+Las pruebas manuales y de integración (Postman) están documentadas en:
 
-- Lista vacía: la interfaz muestra un estado vacío sin errores.
-- Crear tarea sin título: la tarea no se guarda y el foco permanece en el campo de entrada.
-- Crear tarea con título largo: el contenido se mantiene dentro del diseño sin romper la interfaz.
-- Marcar tareas como completadas: el estado cambia correctamente y las estadísticas se actualizan.
-- Eliminar tareas: las tareas desaparecen de la lista y se actualiza la persistencia.
-- Persistencia: al recargar la página, los datos permanecen guardados en LocalStorage.
-- Filtros: las vistas de todas, pendientes y completadas funcionan correctamente.
-- Búsqueda: el filtrado por texto devuelve resultados coherentes.
-- Calendario: las tareas se asocian correctamente a la fecha seleccionada.
-- Carpetas: las tareas se organizan y muestran por carpeta.
-- Prioridad: cada tarea puede guardar y mostrar su nivel de prioridad.
-- Orden A-Z: las tareas se ordenan alfabéticamente cuando se selecciona la opción.
-- Filtro por prioridad: se muestran solo las tareas según la prioridad seleccionada.
-- Responsive: la aplicación se ha probado en escritorio y móvil.
-- Modo oscuro: se ha comprobado la legibilidad general de la interfaz.
+- [server/README.md](/Users/adri/Developer/taskflow-project/server/README.md)
 
 ## Despliegue
 

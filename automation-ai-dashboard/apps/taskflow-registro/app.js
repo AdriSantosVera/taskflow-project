@@ -1,9 +1,5 @@
-const STORAGE_KEY = "taskflow_registro_tasks_clean";
-const THEME_KEY = "taskflow_registro_theme_clean";
-const FOLDERS_KEY = "taskflow_registro_folders_clean";
-
-let folders = loadFolders();
-let tasks = loadTasks();
+let folders = ["Contactos", "Páginas", "Desarrollo"];
+let tasks = [];
 let selectedFolder = folders[0] || "General";
 let selectedDate = formatDateKey(new Date());
 let currentDate = new Date();
@@ -11,6 +7,7 @@ let currentFilter = "all";
 let isDateFilterActive = true;
 let currentSort = "none";
 let priorityFilter = "all";
+let currentTheme = "light";
 let pendingDelete = null;
 let editingTaskId = null;
 let editingFolderName = null;
@@ -22,6 +19,10 @@ const tasksWrap = $("tasksWrap");
 const searchInput = $("search");
 const selectedDateLabel = $("selectedDateLabel");
 const clearDateFilterBtn = $("clearDateFilterBtn");
+const loadingState = $("loadingState");
+const loadingMessage = $("loadingMessage");
+const errorState = $("errorState");
+const toast = $("toast");
 
 const themeBtn = $("themeBtn");
 const themeText = $("themeText");
@@ -107,67 +108,27 @@ const styles = {
     "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
 };
 
-function loadFolders() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FOLDERS_KEY));
-    return Array.isArray(saved) && saved.length
-      ? saved
-      : ["Contactos", "Páginas", "Desarrollo"];
-  } catch {
-    return ["Contactos", "Páginas", "Desarrollo"];
-  }
-}
-
-function getDefaultTasks() {
-  const today = new Date();
-  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-  const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
-
-  return [
-    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "alta" },
-    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "media" },
-    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow), priority: "alta" },
-    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek), priority: "media" },
-    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today), priority: "baja" },
-    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow), priority: "media" }
-  ];
-}
-
 function normalizeTask(task) {
   return {
-    id: task.id || crypto.randomUUID(),
-    title: task.title || task.text || "Tarea sin título",
-    completed: typeof task.completed === "boolean" ? task.completed : Boolean(task.done),
+    id: task.id,
+    title: task.title || "Tarea sin título",
+    completed: Boolean(task.completed),
     createdAt: task.createdAt || new Date().toISOString(),
-    folder: task.folder || folders[0] || "General",
+    folder: task.folder || "General",
     date: task.date || formatDateKey(new Date()),
     priority: task.priority || "media"
   };
 }
 
-function loadTasks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) {
-      return getDefaultTasks();
-    }
-
-    const saved = JSON.parse(raw);
-    if (!Array.isArray(saved)) {
-      return getDefaultTasks();
-    }
-
-    return saved.map(normalizeTask);
-  } catch {
-    return getDefaultTasks();
-  }
+async function fetchTasks() {
+  const data = await window.TaskflowApi.getTasks();
+  return Array.isArray(data) ? data.map(normalizeTask) : [];
 }
 
 function syncInitialSelection() {
   if (!tasks.length) {
     if (!folders.length) {
       folders = ["General"];
-      saveFolders();
     }
     selectedFolder = folders[0];
     selectedDate = formatDateKey(new Date());
@@ -243,12 +204,44 @@ function syncDateForSelectedFolder(preferredDate = selectedDate) {
   }
 }
 
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+async function createTaskApi(payload) {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo crear la tarea");
+  }
+
+  const data = await response.json();
+  return normalizeTask(data);
 }
 
-function saveFolders() {
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+async function updateTaskApi(id, payload) {
+  const response = await fetch(`${API_URL}/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo actualizar la tarea");
+  }
+
+  const data = await response.json();
+  return normalizeTask(data);
+}
+
+async function deleteTaskApi(id) {
+  const response = await fetch(`${API_URL}/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo eliminar la tarea");
+  }
 }
 
 function formatDateKey(date) {
@@ -289,8 +282,7 @@ function applyTheme(theme) {
 }
 
 function loadTheme() {
-  const savedTheme = localStorage.getItem(THEME_KEY) || "light";
-  applyTheme(savedTheme);
+  applyTheme(currentTheme);
 }
 
 function updateSelectedDateLabels() {
@@ -300,6 +292,82 @@ function updateSelectedDateLabels() {
   if (clearDateFilterBtn) {
     clearDateFilterBtn.classList.toggle("hidden", !isDateFilterActive);
   }
+}
+
+function setLoading(isLoading, message = "Cargando tareas...") {
+  if (!loadingState) return;
+  if (loadingMessage && message) {
+    loadingMessage.textContent = message;
+  }
+  loadingState.classList.toggle("hidden", !isLoading);
+}
+
+function setError(message = "") {
+  if (!errorState) return;
+  if (!message) {
+    errorState.textContent = "";
+    errorState.classList.add("hidden");
+    return;
+  }
+  errorState.textContent = message;
+  errorState.classList.remove("hidden");
+  showErrorToast(message);
+}
+
+function showToast(message) {
+  if (!toast) return;
+  toast.classList.remove(
+    "border-red-200",
+    "bg-red-50",
+    "text-red-700",
+    "dark:border-red-900/40",
+    "dark:bg-red-950/60",
+    "dark:text-red-200"
+  );
+  toast.classList.add(
+    "border-slate-200",
+    "bg-white/95",
+    "text-slate-800",
+    "dark:border-slate-800",
+    "dark:bg-slate-900/95",
+    "dark:text-slate-100"
+  );
+  toast.textContent = message;
+  toast.classList.remove("hidden");
+  if (toast._timer) {
+    window.clearTimeout(toast._timer);
+  }
+  toast._timer = window.setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 2400);
+}
+
+function showErrorToast(message) {
+  if (!toast) return;
+  toast.classList.remove(
+    "border-slate-200",
+    "bg-white/95",
+    "text-slate-800",
+    "dark:border-slate-800",
+    "dark:bg-slate-900/95",
+    "dark:text-slate-100"
+  );
+  toast.classList.add(
+    "border-red-200",
+    "bg-red-50",
+    "text-red-700",
+    "dark:border-red-900/40",
+    "dark:bg-red-950/60",
+    "dark:text-red-200"
+  );
+  toast.textContent = message;
+  toast.classList.remove("hidden");
+  if (toast._timer) {
+    window.clearTimeout(toast._timer);
+  }
+  toast._timer = window.setTimeout(() => {
+    toast.classList.add("hidden");
+  }, 3000);
 }
 
 function updateStats() {
@@ -343,65 +411,100 @@ function getFilteredTasks() {
   return result;
 }
 
-function addTask(title, folder, date, priority = "media") {
-  tasks.unshift({
-    id: crypto.randomUUID(),
-    title,
-    completed: false,
-    createdAt: new Date().toISOString(),
-    folder,
-    date,
-    priority
-  });
-
-  saveTasks();
+async function addTask(title, folder, date, priority = "media") {
+  setLoading(true, "Guardando tarea...");
+  setError();
+  try {
+    const created = await createTaskApi({
+      title,
+      folder,
+      date,
+      priority
+    });
+    tasks.unshift(created);
+    showToast("Tarea creada.");
+  } finally {
+    setLoading(false);
+  }
 }
 
-function updateTask(id, updates) {
-  tasks = tasks.map((task) => (
-    task.id === id ? normalizeTask({ ...task, ...updates }) : task
-  ));
-  saveTasks();
+async function updateTask(id, updates) {
+  setLoading(true, "Actualizando tarea...");
+  setError();
+  try {
+    const updated = await updateTaskApi(id, updates);
+    tasks = tasks.map((task) => (task.id === id ? updated : task));
+    showToast("Tarea actualizada.");
+  } finally {
+    setLoading(false);
+  }
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter((task) => task.id !== id);
-  saveTasks();
+async function deleteTask(id) {
+  setLoading(true, "Eliminando tarea...");
+  setError();
+  try {
+    await deleteTaskApi(id);
+    tasks = tasks.filter((task) => task.id !== id);
+    showToast("Tarea eliminada.");
+  } finally {
+    setLoading(false);
+  }
 }
 
-function deleteFolder(folderName) {
-  folders = folders.filter((folder) => folder !== folderName);
-  tasks = tasks.filter((task) => task.folder !== folderName);
+async function deleteFolder(folderName) {
+  setLoading(true, "Eliminando carpeta...");
+  setError();
+  try {
+    const tasksToDelete = tasks.filter((task) => task.folder === folderName);
+    await Promise.all(tasksToDelete.map((task) => deleteTaskApi(task.id)));
 
-  if (!folders.length) {
-    folders = ["General"];
+    folders = folders.filter((folder) => folder !== folderName);
+    tasks = tasks.filter((task) => task.folder !== folderName);
+
+    if (!folders.length) {
+      folders = ["General"];
+    }
+
+    if (!folders.includes(selectedFolder)) {
+      selectedFolder = folders[0];
+    }
+    showToast("Carpeta eliminada.");
+  } finally {
+    setLoading(false);
   }
 
-  if (!folders.includes(selectedFolder)) {
-    selectedFolder = folders[0];
-  }
-
-  saveFolders();
-  saveTasks();
 }
 
 function addFolder(name) {
   folders.push(name);
-  saveFolders();
 }
 
-function renameFolder(previousName, nextName) {
-  folders = folders.map((folder) => (folder === previousName ? nextName : folder));
-  tasks = tasks.map((task) => (
-    task.folder === previousName ? { ...task, folder: nextName } : task
-  ));
+async function renameFolder(previousName, nextName) {
+  setLoading(true, "Actualizando carpeta...");
+  setError();
+  try {
+    const affected = tasks.filter((task) => task.folder === previousName);
+    if (affected.length) {
+      const updated = await Promise.all(
+        affected.map((task) => updateTaskApi(task.id, { folder: nextName }))
+      );
+      tasks = tasks.map((task) => {
+        const match = updated.find((item) => item.id === task.id);
+        return match || task;
+      });
+    }
 
-  if (selectedFolder === previousName) {
-    selectedFolder = nextName;
+    folders = folders.map((folder) => (folder === previousName ? nextName : folder));
+
+    if (selectedFolder === previousName) {
+      selectedFolder = nextName;
+    }
+    showToast("Carpeta actualizada.");
+  } finally {
+    setLoading(false);
   }
 
-  saveFolders();
-  saveTasks();
 }
 
 function openTaskModal(task = null) {
@@ -597,9 +700,14 @@ function createTaskRow(task) {
 
   checkbox.checked = task.completed;
   checkbox.setAttribute("aria-label", `Marcar tarea ${task.title}`);
-  checkbox.addEventListener("change", () => {
-    updateTask(task.id, { completed: checkbox.checked });
-    renderTasks();
+  checkbox.addEventListener("change", async () => {
+    try {
+      await updateTask(task.id, { completed: checkbox.checked });
+      renderTasks();
+    } catch (error) {
+      checkbox.checked = !checkbox.checked;
+      setError("No se pudo actualizar la tarea.");
+    }
   });
 
   title.textContent = task.title;
@@ -829,30 +937,47 @@ function initParticles() {
   });
 }
 
-function completeAllVisibleTasks() {
-  const visibleTaskIds = getFilteredTasks()
-    .filter((task) => !task.completed)
-    .map((task) => task.id);
+async function completeAllVisibleTasks() {
+  const visibleTasks = getFilteredTasks().filter((task) => !task.completed);
+  if (!visibleTasks.length) return;
 
-  if (!visibleTaskIds.length) return;
+  setLoading(true, "Marcando tareas...");
+  setError();
+  try {
+    const updated = await Promise.all(
+      visibleTasks.map((task) => updateTaskApi(task.id, { completed: true }))
+    );
 
-  tasks = tasks.map((task) => (
-    visibleTaskIds.includes(task.id) ? { ...task, completed: true } : task
-  ));
-
-  saveTasks();
+    tasks = tasks.map((task) => {
+      const match = updated.find((item) => item.id === task.id);
+      return match || task;
+    });
+    showToast("Tareas completadas.");
+  } finally {
+    setLoading(false);
+  }
 }
 
-function clearCompletedTasks() {
-  tasks = tasks.filter((task) => !task.completed);
-  saveTasks();
+async function clearCompletedTasks() {
+  const completed = tasks.filter((task) => task.completed);
+  if (!completed.length) return;
+
+  setLoading(true, "Borrando completadas...");
+  setError();
+  try {
+    await Promise.all(completed.map((task) => deleteTaskApi(task.id)));
+    tasks = tasks.filter((task) => !task.completed);
+    showToast("Completadas eliminadas.");
+  } finally {
+    setLoading(false);
+  }
 }
 
 themeBtn.addEventListener("click", () => {
   const isDark = document.documentElement.classList.contains("dark");
   const nextTheme = isDark ? "light" : "dark";
 
-  localStorage.setItem(THEME_KEY, nextTheme);
+  currentTheme = nextTheme;
   applyTheme(nextTheme);
   renderCalendar();
 });
@@ -866,7 +991,7 @@ cancelBtn.addEventListener("click", () => {
   closeModal(modal);
 });
 
-taskForm.addEventListener("submit", (event) => {
+taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const title = taskInput.value.trim();
@@ -878,10 +1003,15 @@ taskForm.addEventListener("submit", (event) => {
     return;
   }
 
-  if (editingTaskId) {
-    updateTask(editingTaskId, { title, folder, date: selectedDate, priority });
-  } else {
-    addTask(title, folder, selectedDate, priority);
+  try {
+    if (editingTaskId) {
+      await updateTask(editingTaskId, { title, folder, date: selectedDate, priority });
+    } else {
+      await addTask(title, folder, selectedDate, priority);
+    }
+  } catch (error) {
+    setError("No se pudo guardar la tarea.");
+    return;
   }
 
   selectedFolder = folder;
@@ -932,14 +1062,19 @@ confirmCancel.addEventListener("click", () => {
   closeModal(confirmModal);
 });
 
-confirmOk.addEventListener("click", () => {
+confirmOk.addEventListener("click", async () => {
   if (!pendingDelete) return;
 
-  if (pendingDelete.type === "folder") {
-    deleteFolder(pendingDelete.folder);
-    renderFolders();
-  } else {
-    deleteTask(pendingDelete.id);
+  try {
+    if (pendingDelete.type === "folder") {
+      await deleteFolder(pendingDelete.folder);
+      renderFolders();
+    } else {
+      await deleteTask(pendingDelete.id);
+    }
+  } catch (error) {
+    setError("No se pudo eliminar la tarea.");
+    return;
   }
 
   pendingDelete = null;
@@ -970,13 +1105,21 @@ priorityFilterSelect.addEventListener("change", () => {
   renderTasks();
 });
 
-completeAllBtn.addEventListener("click", () => {
-  completeAllVisibleTasks();
+completeAllBtn.addEventListener("click", async () => {
+  try {
+    await completeAllVisibleTasks();
+  } catch (error) {
+    setError("No se pudieron completar las tareas.");
+  }
   renderTasks();
 });
 
-clearCompletedBtn.addEventListener("click", () => {
-  clearCompletedTasks();
+clearCompletedBtn.addEventListener("click", async () => {
+  try {
+    await clearCompletedTasks();
+  } catch (error) {
+    setError("No se pudieron borrar las tareas completadas.");
+  }
   renderFolders();
   renderTasks();
   renderCalendar();
@@ -1010,13 +1153,26 @@ if (clearDateFilterBtn) {
   });
 }
 
-loadTheme();
-syncInitialSelection();
-updateSelectedDateLabels();
-renderFolders();
-renderTasks();
-renderCalendar();
-updateClock();
-initParticles();
+async function initApp() {
+  loadTheme();
+  setLoading(true, "Cargando tareas...");
+  setError();
+  try {
+    tasks = await fetchTasks();
+  } catch (error) {
+    tasks = [];
+    setError("No se pudieron cargar las tareas. Revisa que el servidor esté activo.");
+  } finally {
+    setLoading(false);
+  }
+  syncInitialSelection();
+  updateSelectedDateLabels();
+  renderFolders();
+  renderTasks();
+  renderCalendar();
+  updateClock();
+  initParticles();
+}
 
+initApp();
 setInterval(updateClock, 60_000);
