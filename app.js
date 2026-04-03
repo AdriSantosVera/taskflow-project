@@ -1,250 +1,89 @@
-const STORAGE_KEY = "taskflow_registro_tasks_clean";
-const THEME_KEY = "taskflow_registro_theme_clean";
-const FOLDERS_KEY = "taskflow_registro_folders_clean";
-
-let folders = loadFolders();
-let tasks = loadTasks();
-let selectedFolder = folders[0] || "General";
-let selectedDate = formatDateKey(new Date());
-let currentDate = new Date();
-let currentFilter = "all";
-let pendingDelete = null;
-let editingTaskId = null;
-let editingFolderName = null;
+import {
+  crearCategoria,
+  crearTarea,
+  actualizarTarea,
+  eliminarCategoria,
+  eliminarTarea,
+  obtenerCategorias,
+  obtenerTareas
+} from "./src/api/client.js";
+import { getPriorityCssClasses, pluralize } from "./src/utils.js";
 
 const $ = (id) => document.getElementById(id);
-
-const foldersDiv = $("folders");
-const tasksWrap = $("tasksWrap");
-const searchInput = $("search");
-const selectedDateLabel = $("selectedDateLabel");
-
-const themeBtn = $("themeBtn");
-const themeText = $("themeText");
-const themeIcon = $("themeIcon");
-const themeKnob = $("themeKnob");
-
-const addBtn = $("addBtn");
-const modal = $("modal");
-const taskForm = $("taskForm");
-const taskModalTitle = $("taskModalTitle");
-const taskInput = $("taskInput");
-const taskFolderSelect = $("taskFolderSelect");
-const taskPrioritySelect = $("taskPrioritySelect");
-const cancelBtn = $("cancelBtn");
-const saveBtn = $("saveBtn");
-const currentDateLabel = $("currentDateLabel");
-
-const folderModal = $("folderModal");
-const folderModalTitle = $("folderModalTitle");
-const folderInput = $("folderInput");
-const addFolderBtn = $("addFolderBtn");
-const folderCancelBtn = $("folderCancelBtn");
-const folderSaveBtn = $("folderSaveBtn");
-
-const confirmModal = $("confirmModal");
-const confirmTitle = $("confirmTitle");
-const confirmText = $("confirmText");
-const confirmCancel = $("confirmCancel");
-const confirmOk = $("confirmOk");
-
-const prevMonth = $("prevMonth");
-const nextMonth = $("nextMonth");
-const todayBtn = $("todayBtn");
-const calendarTitle = $("calendarTitle");
-const calendarGrid = $("calendarGrid");
-
-const hh = $("hh");
-const mm = $("mm");
-const ampm = $("ampm");
-
-const totalTasksStat = $("totalTasksStat");
-const completedTasksStat = $("completedTasksStat");
-const pendingTasksStat = $("pendingTasksStat");
-const pendingNextDate = $("pendingNextDate");
-
-const filterAll = $("filterAll");
-const filterPending = $("filterPending");
-const filterCompleted = $("filterCompleted");
-const completeAllBtn = $("completeAllBtn");
-const clearCompletedBtn = $("clearCompletedBtn");
-
-const taskTemplate = $("taskTemplate");
-const bgParticles = $("bgParticles");
 
 const monthNames = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-const styles = {
-  folderButton:
-    "relative z-10 flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition will-change-transform",
-  folderButtonActive:
-    "border-sky-200 bg-white text-slate-950 shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
-  folderButtonIdle:
-    "border-slate-200/80 bg-white/90 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
-  folderEditHint:
-    "hidden",
-  emptyState:
-    "rounded-[28px] border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400",
-  calendarCell:
-    "relative flex h-9 cursor-pointer items-center justify-center rounded-2xl text-[12px] font-bold transition",
-  selectedCalendarCell:
-    "ring-2 ring-sky-400 ring-offset-1 ring-offset-slate-900 dark:ring-sky-300 dark:ring-offset-slate-800",
-  todayCalendarCell:
-    "border border-white/20 bg-white/10 text-white",
-  folderGroup:
-    "rounded-[28px] border border-slate-200 bg-slate-50/70 p-4 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950",
-  groupHeader:
-    "mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900",
-  badge:
-    "rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-  filterActive:
-    "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+const BASE_FOLDERS = new Set(["Todas", "Trabajo", "Estudios", "Personal"]);
+
+const state = {
+  tasks: [],
+  folders: [],
+  selectedFolder: "General",
+  selectedDate: formatDateKey(new Date()),
+  currentDate: new Date(),
+  statusFilter: "all",
+  sortFilter: "none",
+  priorityFilter: "all",
+  searchQuery: "",
+  theme: "light",
+  editingTaskId: null,
+  editingFolderName: null,
+  pendingDelete: null
 };
 
-function loadFolders() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FOLDERS_KEY));
-    return Array.isArray(saved) && saved.length
-      ? saved
-      : ["Contactos", "Páginas", "Desarrollo"];
-  } catch {
-    return ["Contactos", "Páginas", "Desarrollo"];
-  }
-}
-
-function getDefaultTasks() {
-  const today = new Date();
-  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-  const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
-
-  return [
-    { id: crypto.randomUUID(), title: "Llamar a proveedor", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "alta" },
-    { id: crypto.randomUUID(), title: "Enviar correo a cliente", completed: false, createdAt: today.toISOString(), folder: "Contactos", date: formatDateKey(today), priority: "media" },
-    { id: crypto.randomUUID(), title: "Diseñar landing principal", completed: false, createdAt: tomorrow.toISOString(), folder: "Páginas", date: formatDateKey(tomorrow), priority: "alta" },
-    { id: crypto.randomUUID(), title: "Corregir versión móvil", completed: false, createdAt: nextWeek.toISOString(), folder: "Páginas", date: formatDateKey(nextWeek), priority: "media" },
-    { id: crypto.randomUUID(), title: "Revisar formulario login", completed: true, createdAt: today.toISOString(), folder: "Desarrollo", date: formatDateKey(today), priority: "baja" },
-    { id: crypto.randomUUID(), title: "Subir cambios a Git", completed: true, createdAt: tomorrow.toISOString(), folder: "Desarrollo", date: formatDateKey(tomorrow), priority: "media" }
-  ];
-}
-
-function normalizeTask(task) {
-  return {
-    id: task.id || crypto.randomUUID(),
-    title: task.title || task.text || "Tarea sin título",
-    completed: typeof task.completed === "boolean" ? task.completed : Boolean(task.done),
-    createdAt: task.createdAt || new Date().toISOString(),
-    folder: task.folder || folders[0] || "General",
-    date: task.date || formatDateKey(new Date()),
-    priority: task.priority || "media"
-  };
-}
-
-function loadTasks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) {
-      return getDefaultTasks();
-    }
-
-    const saved = JSON.parse(raw);
-    if (!Array.isArray(saved)) {
-      return getDefaultTasks();
-    }
-
-    return saved.map(normalizeTask);
-  } catch {
-    return getDefaultTasks();
-  }
-}
-
-function syncInitialSelection() {
-  if (!tasks.length) {
-    if (!folders.length) {
-      folders = ["General"];
-      saveFolders();
-    }
-    selectedFolder = folders[0];
-    selectedDate = formatDateKey(new Date());
-    return;
-  }
-
-  const folderWithTasks = folders.find((folder) => tasks.some((task) => task.folder === folder));
-  if (folderWithTasks) {
-    selectedFolder = folderWithTasks;
-  }
-
-  const todayKey = formatDateKey(new Date());
-  const hasTasksToday = tasks.some(
-    (task) => task.folder === selectedFolder && task.date === todayKey
-  );
-
-  if (hasTasksToday) {
-    selectedDate = todayKey;
-    currentDate = new Date();
-    return;
-  }
-
-  const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder) || tasks[0];
-  if (firstTaskForFolder) {
-    selectedDate = firstTaskForFolder.date;
-    const [year, month] = firstTaskForFolder.date.split("-").map(Number);
-    currentDate = new Date(year, month - 1, 1);
-  }
-}
-
-function getVisibleTasksForFolder(folder) {
-  const query = searchInput.value.trim().toLowerCase();
-
-  return tasks.filter((task) => {
-    const matchesFolder = task.folder === folder;
-    const matchesDate = task.date === selectedDate;
-    const matchesQuery =
-      !query ||
-      task.title.toLowerCase().includes(query) ||
-      task.folder.toLowerCase().includes(query);
-    const matchesStatus =
-      currentFilter === "all" ||
-      (currentFilter === "pending" && !task.completed) ||
-      (currentFilter === "completed" && task.completed);
-
-    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
-  });
-}
-
-function getFolderTaskCount(folder) {
-  return getVisibleTasksForFolder(folder).length;
-}
-
-function syncDateForSelectedFolder(preferredDate = selectedDate) {
-  const hasTasksOnPreferredDate = tasks.some(
-    (task) => task.folder === selectedFolder && task.date === preferredDate
-  );
-
-  if (hasTasksOnPreferredDate) {
-    selectedDate = preferredDate;
-    const [year, month] = preferredDate.split("-").map(Number);
-    currentDate = new Date(year, month - 1, 1);
-    return;
-  }
-
-  const firstTaskForFolder = tasks.find((task) => task.folder === selectedFolder);
-  if (firstTaskForFolder) {
-    selectedDate = firstTaskForFolder.date;
-    const [year, month] = firstTaskForFolder.date.split("-").map(Number);
-    currentDate = new Date(year, month - 1, 1);
-  }
-}
-
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-}
-
-function saveFolders() {
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-}
+const els = {
+  themeBtn: $("themeBtn"),
+  themeText: $("themeText"),
+  themeIcon: $("themeIcon"),
+  themeKnob: $("themeKnob"),
+  folders: $("folders"),
+  addFolderBtn: $("addFolderBtn"),
+  prevMonth: $("prevMonth"),
+  nextMonth: $("nextMonth"),
+  todayBtn: $("todayBtn"),
+  calendarTitle: $("calendarTitle"),
+  calendarGrid: $("calendarGrid"),
+  completedTasksStat: $("completedTasksStat"),
+  pendingTasksStat: $("pendingTasksStat"),
+  pendingNextDate: $("pendingNextDate"),
+  selectedDateLabel: $("selectedDateLabel"),
+  clearDateFilterBtn: $("clearDateFilterBtn"),
+  addBtn: $("addBtn"),
+  search: $("search"),
+  completeAllBtn: $("completeAllBtn"),
+  clearCompletedBtn: $("clearCompletedBtn"),
+  statusFilter: $("statusFilter"),
+  sortFilter: $("sortFilter"),
+  priorityFilter: $("priorityFilter"),
+  feedbackMessage: $("feedbackMessage"),
+  tasksWrap: $("tasksWrap"),
+  hh: $("hh"),
+  mm: $("mm"),
+  ampm: $("ampm"),
+  modal: $("modal"),
+  taskForm: $("taskForm"),
+  taskModalTitle: $("taskModalTitle"),
+  taskInput: $("taskInput"),
+  taskFolderSelect: $("taskFolderSelect"),
+  taskPrioritySelect: $("taskPrioritySelect"),
+  currentDateLabel: $("currentDateLabel"),
+  cancelBtn: $("cancelBtn"),
+  saveBtn: $("saveBtn"),
+  folderModal: $("folderModal"),
+  folderModalTitle: $("folderModalTitle"),
+  folderInput: $("folderInput"),
+  folderCancelBtn: $("folderCancelBtn"),
+  folderSaveBtn: $("folderSaveBtn"),
+  confirmModal: $("confirmModal"),
+  confirmTitle: $("confirmTitle"),
+  confirmText: $("confirmText"),
+  confirmCancel: $("confirmCancel"),
+  confirmOk: $("confirmOk"),
+  taskTemplate: $("taskTemplate")
+};
 
 function formatDateKey(date) {
   const year = date.getFullYear();
@@ -253,15 +92,116 @@ function formatDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatDisplayDate(dateKey) {
+function parseDateKey(dateKey) {
   const [year, month, day] = dateKey.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
+  return new Date(year, month - 1, day);
+}
+
+function formatDisplayDate(dateKey) {
+  if (!dateKey) {
+    return "Todas las fechas";
+  }
 
   return new Intl.DateTimeFormat("es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long"
-  }).format(date);
+  }).format(parseDateKey(dateKey));
+}
+
+function normalizeTask(task) {
+  return {
+    id: task.id,
+    title: task.title ?? task.texto ?? "Sin título",
+    completed: task.completed ?? task.completada ?? false,
+    createdAt: task.createdAt ?? new Date().toISOString(),
+    folder: task.folder ?? task.categoria ?? "General",
+    date: task.date ?? task.fecha ?? null,
+    priority: task.priority ?? task.prioridad ?? "media"
+  };
+}
+
+function getVisibleTasks() {
+  const query = state.searchQuery.trim().toLowerCase();
+
+  let filtered = state.tasks.filter((task) => {
+    const matchesFolder = task.folder === state.selectedFolder;
+    const matchesDate = !state.selectedDate || task.date === state.selectedDate;
+    const matchesSearch =
+      !query ||
+      task.title.toLowerCase().includes(query) ||
+      task.folder.toLowerCase().includes(query) ||
+      task.priority.toLowerCase().includes(query);
+    const matchesStatus =
+      state.statusFilter === "all" ||
+      (state.statusFilter === "pending" && !task.completed) ||
+      (state.statusFilter === "completed" && task.completed);
+    const matchesPriority =
+      state.priorityFilter === "all" || task.priority === state.priorityFilter;
+
+    return matchesFolder && matchesDate && matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  if (state.sortFilter === "az") {
+    filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title, "es"));
+  } else if (state.sortFilter === "za") {
+    filtered = [...filtered].sort((a, b) => b.title.localeCompare(a.title, "es"));
+  }
+
+  return filtered;
+}
+
+function getFolderVisibleCount(folderName) {
+  return state.tasks.filter((task) => {
+    const matchesFolder = task.folder === folderName;
+    const matchesDate = !state.selectedDate || task.date === state.selectedDate;
+    const matchesStatus =
+      state.statusFilter === "all" ||
+      (state.statusFilter === "pending" && !task.completed) ||
+      (state.statusFilter === "completed" && task.completed);
+    const matchesPriority =
+      state.priorityFilter === "all" || task.priority === state.priorityFilter;
+    const matchesSearch =
+      !state.searchQuery ||
+      task.title.toLowerCase().includes(state.searchQuery) ||
+      task.folder.toLowerCase().includes(state.searchQuery) ||
+      task.priority.toLowerCase().includes(state.searchQuery);
+
+    return matchesFolder && matchesDate && matchesStatus && matchesPriority && matchesSearch;
+  }).length;
+}
+
+function showFeedback(message, kind = "error") {
+  els.feedbackMessage.textContent = message;
+  els.feedbackMessage.className =
+    "bottom-6 left-1/2 z-[60] w-[140px] -translate-x-1/2 rounded-2xl border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur transition-opacity duration-300";
+
+  if (kind === "error") {
+    els.feedbackMessage.classList.add(
+      "block",
+      "border-red-200",
+      "bg-red-50",
+      "text-red-700",
+      "dark:border-red-900/40",
+      "dark:bg-red-950/60",
+      "dark:text-red-200"
+    );
+  } else {
+    els.feedbackMessage.classList.add(
+      "block",
+      "border-emerald-200",
+      "bg-emerald-50",
+      "text-emerald-700",
+      "dark:border-emerald-900/40",
+      "dark:bg-emerald-950/60",
+      "dark:text-emerald-200"
+    );
+  }
+
+  window.clearTimeout(showFeedback.timeoutId);
+  showFeedback.timeoutId = window.setTimeout(() => {
+    els.feedbackMessage.classList.add("hidden");
+  }, 3000);
 }
 
 function openModal(element) {
@@ -276,455 +216,11 @@ function closeModal(element) {
 
 function applyTheme(theme) {
   const isDark = theme === "dark";
-
   document.documentElement.classList.toggle("dark", isDark);
-  themeText.textContent = isDark ? "Modo oscuro" : "Modo claro";
-  themeIcon.textContent = isDark ? "🌙" : "☀️";
-  themeKnob.style.transform = isDark ? "translateX(20px)" : "translateX(0)";
-}
-
-function loadTheme() {
-  const savedTheme = localStorage.getItem(THEME_KEY) || "light";
-  applyTheme(savedTheme);
-}
-
-function updateSelectedDateLabels() {
-  const formatted = formatDisplayDate(selectedDate);
-  selectedDateLabel.textContent = formatted;
-  currentDateLabel.textContent = formatted;
-}
-
-function updateStats() {
-  totalTasksStat.textContent = String(tasks.length);
-  completedTasksStat.textContent = String(tasks.filter((task) => task.completed).length);
-  const pendingTasks = tasks.filter((task) => !task.completed);
-  pendingTasksStat.textContent = String(pendingTasks.length);
-
-  if (!pendingTasks.length) {
-    pendingNextDate.textContent = "Sin fecha pendiente";
-    return;
-  }
-
-  const nextPendingTask = [...pendingTasks].sort((a, b) => a.date.localeCompare(b.date))[0];
-  pendingNextDate.textContent = `Próxima: ${formatDisplayDate(nextPendingTask.date)}`;
-}
-
-function updateFilterButtons() {
-  const filterMap = [
-    [filterAll, "all"],
-    [filterPending, "pending"],
-    [filterCompleted, "completed"]
-  ];
-
-  filterMap.forEach(([button, value]) => {
-    button.classList.remove(...styles.filterActive.split(" "));
-    if (currentFilter === value) {
-      button.classList.add(...styles.filterActive.split(" "));
-    }
-  });
-}
-
-function getFilteredTasks() {
-  const query = searchInput.value.trim().toLowerCase();
-
-  return tasks.filter((task) => {
-    const matchesFolder = task.folder === selectedFolder;
-    const matchesDate = task.date === selectedDate;
-    const matchesQuery =
-      !query ||
-      task.title.toLowerCase().includes(query) ||
-      task.folder.toLowerCase().includes(query);
-    const matchesStatus =
-      currentFilter === "all" ||
-      (currentFilter === "pending" && !task.completed) ||
-      (currentFilter === "completed" && task.completed);
-
-    return matchesFolder && matchesDate && matchesQuery && matchesStatus;
-  });
-}
-
-function addTask(title, folder, date, priority = "media") {
-  tasks.unshift({
-    id: crypto.randomUUID(),
-    title,
-    completed: false,
-    createdAt: new Date().toISOString(),
-    folder,
-    date,
-    priority
-  });
-
-  saveTasks();
-}
-
-function updateTask(id, updates) {
-  tasks = tasks.map((task) => (
-    task.id === id ? normalizeTask({ ...task, ...updates }) : task
-  ));
-  saveTasks();
-}
-
-function deleteTask(id) {
-  tasks = tasks.filter((task) => task.id !== id);
-  saveTasks();
-}
-
-function deleteFolder(folderName) {
-  folders = folders.filter((folder) => folder !== folderName);
-  tasks = tasks.filter((task) => task.folder !== folderName);
-
-  if (!folders.length) {
-    folders = ["General"];
-  }
-
-  if (!folders.includes(selectedFolder)) {
-    selectedFolder = folders[0];
-  }
-
-  saveFolders();
-  saveTasks();
-}
-
-function addFolder(name) {
-  folders.push(name);
-  saveFolders();
-}
-
-function renameFolder(previousName, nextName) {
-  folders = folders.map((folder) => (folder === previousName ? nextName : folder));
-  tasks = tasks.map((task) => (
-    task.folder === previousName ? { ...task, folder: nextName } : task
-  ));
-
-  if (selectedFolder === previousName) {
-    selectedFolder = nextName;
-  }
-
-  saveFolders();
-  saveTasks();
-}
-
-function openTaskModal(task = null) {
-  editingTaskId = task ? task.id : null;
-  taskModalTitle.textContent = task ? "Editar tarea" : "Nueva tarea";
-  saveBtn.textContent = task ? "Actualizar" : "Guardar";
-  taskInput.value = task ? task.title : "";
-  taskFolderSelect.innerHTML = "";
-
-  folders.forEach((folder) => {
-    const option = document.createElement("option");
-    option.value = folder;
-    option.textContent = folder;
-    taskFolderSelect.appendChild(option);
-  });
-
-  taskFolderSelect.value = task ? task.folder : selectedFolder;
-  taskPrioritySelect.value = task ? task.priority : "media";
-  updateSelectedDateLabels();
-  openModal(modal);
-  taskInput.focus();
-}
-
-function openFolderModal(folderName = "") {
-  editingFolderName = folderName || null;
-  folderModalTitle.textContent = folderName ? "Editar carpeta" : "Nueva carpeta";
-  folderSaveBtn.textContent = folderName ? "Actualizar" : "Guardar";
-  folderInput.value = folderName;
-  openModal(folderModal);
-  folderInput.focus();
-}
-
-function attachSwipeToEdit(target, onEdit, hint = null) {
-  let startX = 0;
-  let currentX = 0;
-  let dragging = false;
-
-  const pointerDown = (event) => {
-    startX = event.clientX;
-    currentX = 0;
-    dragging = true;
-    target.style.transition = "none";
-    if (hint) {
-      hint.style.opacity = "0";
-    }
-  };
-
-  const pointerMove = (event) => {
-    if (!dragging) return;
-
-    currentX = Math.max(0, Math.min(event.clientX - startX, 90));
-    target.style.transform = `translateX(${currentX}px)`;
-    if (hint) {
-      hint.style.opacity = currentX > 12 ? "1" : "0";
-    }
-  };
-
-  const pointerUp = () => {
-    if (!dragging) return;
-
-    dragging = false;
-    target.style.transition = "transform 150ms ease";
-
-    if (currentX > 56) {
-      target.style.transform = "translateX(0)";
-      if (hint) {
-        hint.style.opacity = "0";
-      }
-      onEdit();
-      return;
-    }
-
-    target.style.transform = "translateX(0)";
-    if (hint) {
-      hint.style.opacity = "0";
-    }
-  };
-
-  target.addEventListener("pointerdown", pointerDown);
-  target.addEventListener("pointermove", pointerMove);
-  target.addEventListener("pointerup", pointerUp);
-  target.addEventListener("pointercancel", pointerUp);
-  target.addEventListener("pointerleave", pointerUp);
-}
-
-function openDeleteModal(payload) {
-  pendingDelete = payload;
-
-  if (payload.type === "folder") {
-    confirmTitle.textContent = "Eliminar carpeta";
-    const count = tasks.filter((task) => task.folder === payload.folder).length;
-    confirmText.textContent =
-      `¿Seguro que quieres borrar la carpeta?\n\n"${payload.folder}"\n\nTambién se eliminarán ${count} tarea${count === 1 ? "" : "s"}.`;
-  } else {
-    confirmTitle.textContent = "Eliminar tarea";
-    confirmText.textContent = `¿Seguro que quieres borrar esta tarea?\n\n"${payload.title}"`;
-  }
-
-  openModal(confirmModal);
-}
-
-function renderFolders() {
-  foldersDiv.innerHTML = "";
-
-  folders.forEach((folder) => {
-    const isActive = folder === selectedFolder;
-    const wrapper = document.createElement("div");
-    wrapper.className = "relative overflow-hidden rounded-xl";
-
-    const hint = document.createElement("div");
-    hint.className = `absolute inset-y-0 left-0 flex items-center pl-4 ${styles.folderEditHint}`;
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `${styles.folderButton} ${
-      isActive ? styles.folderButtonActive : styles.folderButtonIdle
-    }`;
-
-    const label = document.createElement("span");
-    label.className = "truncate";
-    const countClass = isActive
-      ? "text-slate-600 dark:text-slate-300"
-      : "text-slate-400 dark:text-slate-400";
-    const iconClass = isActive
-      ? "bg-sky-100 text-slate-900 dark:bg-slate-700 dark:text-slate-100"
-      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-100";
-    label.innerHTML = `
-      <span class="flex items-center gap-3">
-        <span class="flex h-9 w-9 items-center justify-center rounded-2xl ${iconClass}">📁</span>
-        <span class="min-w-0">
-          <span class="block truncate text-sm font-extrabold">${folder}</span>
-          <span class="block text-xs font-medium ${countClass}">${getFolderTaskCount(folder)} tareas visibles</span>
-        </span>
-      </span>
-    `;
-
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className =
-      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-700 transition hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-red-900/40 dark:hover:text-red-300";
-    deleteButton.textContent = "🗑";
-    deleteButton.setAttribute("aria-label", `Eliminar carpeta ${folder}`);
-    deleteButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openDeleteModal({ type: "folder", folder });
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "flex items-center gap-2";
-    actions.append(deleteButton);
-
-    button.append(label, actions);
-    button.addEventListener("click", () => {
-      selectedFolder = folder;
-      syncDateForSelectedFolder(selectedDate);
-      updateSelectedDateLabels();
-      renderFolders();
-      renderCalendar();
-      renderTasks();
-    });
-
-    attachSwipeToEdit(button, () => openFolderModal(folder), hint);
-
-    wrapper.append(hint, button);
-    foldersDiv.appendChild(wrapper);
-  });
-}
-
-function renderEmptyState() {
-  const emptyState = document.createElement("div");
-  emptyState.className = styles.emptyState;
-  emptyState.innerHTML = `
-    <div class="flex items-start gap-4">
-      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-xl dark:bg-sky-950/50">🗂️</div>
-      <div>
-        <p class="font-bold text-slate-700 dark:text-slate-200">No hay tareas para esta combinación.</p>
-        <p class="mt-1">Selecciona otra fecha, cambia el filtro o añade una tarea nueva en <strong>${selectedFolder}</strong>.</p>
-      </div>
-    </div>
-  `;
-  tasksWrap.appendChild(emptyState);
-}
-
-function createTaskRow(task) {
-  const rowNode = taskTemplate.content.firstElementChild.cloneNode(true);
-  const hint = rowNode.querySelector("[data-task-edit-hint]");
-  const row = rowNode.querySelector("[data-task-row]");
-  const checkbox = rowNode.querySelector("[data-task-checkbox]");
-  const title = rowNode.querySelector("[data-task-title]");
-  const meta = rowNode.querySelector("[data-task-meta]");
-  const priority = rowNode.querySelector("[data-task-priority]");
-  const removeButton = rowNode.querySelector("[data-task-delete]");
-
-  checkbox.checked = task.completed;
-  checkbox.setAttribute("aria-label", `Marcar tarea ${task.title}`);
-  checkbox.addEventListener("change", () => {
-    updateTask(task.id, { completed: checkbox.checked });
-    renderTasks();
-  });
-
-  title.textContent = task.title;
-  meta.textContent = `${task.completed ? "Completada" : "Pendiente"} · ${formatDisplayDate(task.date)}`;
-  priority.textContent = task.priority;
-
-  if (task.priority === "alta") {
-    priority.className = "rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
-  } else if (task.priority === "media") {
-    priority.className = "rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
-  } else {
-    priority.className = "rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
-  }
-
-  if (task.completed) {
-    title.classList.add("line-through", "text-slate-400", "dark:text-slate-500");
-  }
-
-  removeButton.setAttribute("aria-label", `Eliminar tarea ${task.title}`);
-  removeButton.addEventListener("click", () => {
-    openDeleteModal({ type: "task", id: task.id, title: task.title });
-  });
-
-  attachSwipeToEdit(row, () => openTaskModal(task), hint);
-
-  return rowNode;
-}
-
-function renderTasks() {
-  tasksWrap.innerHTML = "";
-  updateStats();
-  updateFilterButtons();
-
-  const filteredTasks = getFilteredTasks();
-
-  if (!filteredTasks.length) {
-    renderEmptyState();
-    return;
-  }
-
-  const group = document.createElement("section");
-  group.className = styles.folderGroup;
-
-  const header = document.createElement("div");
-  header.className = styles.groupHeader;
-
-  const title = document.createElement("div");
-  title.innerHTML = `
-    <h2 class="text-base font-black">${selectedFolder}</h2>
-    <p class="text-sm text-slate-500 dark:text-slate-400">${formatDisplayDate(selectedDate)}</p>
-  `;
-
-  const badge = document.createElement("span");
-  badge.className = styles.badge;
-  badge.textContent = `${filteredTasks.length} tarea${filteredTasks.length === 1 ? "" : "s"}`;
-
-  header.append(title, badge);
-  group.appendChild(header);
-
-  filteredTasks.forEach((task) => {
-    group.appendChild(createTaskRow(task));
-  });
-
-  tasksWrap.appendChild(group);
-}
-
-function renderCalendar() {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  let startDay = firstDay.getDay();
-  startDay = startDay === 0 ? 6 : startDay - 1;
-
-  const todayKey = formatDateKey(new Date());
-
-  calendarTitle.textContent = `${monthNames[month]} ${year}`;
-  calendarGrid.innerHTML = "";
-
-  for (let i = 0; i < startDay; i += 1) {
-    const blank = document.createElement("div");
-    blank.className = "h-8";
-    calendarGrid.appendChild(blank);
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day += 1) {
-    const cellDate = new Date(year, month, day);
-    const cellDateKey = formatDateKey(cellDate);
-    const cell = document.createElement("button");
-    cell.type = "button";
-    cell.className = styles.calendarCell;
-    cell.textContent = String(day);
-    cell.setAttribute("aria-label", `Seleccionar ${formatDisplayDate(cellDateKey)}`);
-
-    if (cellDateKey === todayKey) {
-      cell.classList.add(...styles.todayCalendarCell.split(" "));
-    } else {
-      cell.classList.add("text-slate-300", "hover:bg-white/10");
-    }
-
-    if (cellDateKey === selectedDate) {
-      cell.classList.add(...styles.selectedCalendarCell.split(" "));
-      if (cellDateKey === todayKey) {
-        cell.classList.add("bg-sky-300", "text-slate-950", "border-sky-200");
-      } else {
-        cell.classList.add("bg-white", "text-slate-950", "shadow-sm");
-      }
-    }
-
-    if (tasks.some((task) => task.date === cellDateKey)) {
-      const dot = document.createElement("span");
-      dot.className = "absolute bottom-1 h-1.5 w-1.5 rounded-full bg-sky-300";
-      cell.appendChild(dot);
-    }
-
-    cell.addEventListener("click", () => {
-      selectedDate = cellDateKey;
-      updateSelectedDateLabels();
-      renderCalendar();
-      renderTasks();
-    });
-
-    calendarGrid.appendChild(cell);
-  }
+  state.theme = theme;
+  els.themeText.textContent = isDark ? "Modo oscuro" : "Modo claro";
+  els.themeIcon.textContent = isDark ? "🌙" : "☀️";
+  els.themeKnob.style.transform = isDark ? "translateX(20px)" : "translateX(0)";
 }
 
 function updateClock() {
@@ -732,279 +228,471 @@ function updateClock() {
   let hour = now.getHours();
   const minute = now.getMinutes();
   const meridian = hour >= 12 ? "PM" : "AM";
-
   hour = hour % 12 || 12;
-
-  hh.textContent = String(hour).padStart(2, "0");
-  mm.textContent = String(minute).padStart(2, "0");
-  ampm.textContent = meridian;
+  els.hh.textContent = String(hour).padStart(2, "0");
+  els.mm.textContent = String(minute).padStart(2, "0");
+  els.ampm.textContent = meridian;
 }
 
-function initParticles() {
-  if (!bgParticles) return;
+function updateDateLabels() {
+  els.selectedDateLabel.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "—";
+  els.currentDateLabel.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "Sin filtro de fecha";
+}
 
-  const ctx = bgParticles.getContext("2d");
-  if (!ctx) return;
+function updateStats() {
+  const completed = state.tasks.filter((task) => task.completed).length;
+  const pendingTasks = state.tasks.filter((task) => !task.completed);
+  els.completedTasksStat.textContent = String(completed);
+  els.pendingTasksStat.textContent = String(pendingTasks.length);
 
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  const state = {
-    width: 0,
-    height: 0,
-    particles: [],
-    animationId: null
-  };
-
-  const colors = {
-    light: "rgba(37, 99, 235, 0.35)",
-    dark: "rgba(56, 189, 248, 0.35)"
-  };
-
-  const resize = () => {
-    state.width = window.innerWidth;
-    state.height = window.innerHeight;
-    bgParticles.width = Math.floor(state.width * window.devicePixelRatio);
-    bgParticles.height = Math.floor(state.height * window.devicePixelRatio);
-    ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-
-    const targetCount = Math.min(90, Math.max(40, Math.floor(state.width / 14)));
-    state.particles = Array.from({ length: targetCount }, () => ({
-      x: Math.random() * state.width,
-      y: Math.random() * state.height,
-      r: 1 + Math.random() * 2.6,
-      vx: (Math.random() - 0.5) * 0.35,
-      vy: (Math.random() - 0.5) * 0.35,
-      alpha: 0.15 + Math.random() * 0.35
-    }));
-  };
-
-  const draw = () => {
-    ctx.clearRect(0, 0, state.width, state.height);
-    const isDark = document.documentElement.classList.contains("dark");
-    const baseColor = isDark ? colors.dark : colors.light;
-
-    for (const particle of state.particles) {
-      particle.x += particle.vx;
-      particle.y += particle.vy;
-
-      if (particle.x < -20) particle.x = state.width + 20;
-      if (particle.x > state.width + 20) particle.x = -20;
-      if (particle.y < -20) particle.y = state.height + 20;
-      if (particle.y > state.height + 20) particle.y = -20;
-
-      ctx.beginPath();
-      ctx.fillStyle = baseColor.replace("0.35", particle.alpha.toFixed(2));
-      ctx.arc(particle.x, particle.y, particle.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    state.animationId = window.requestAnimationFrame(draw);
-  };
-
-  const stop = () => {
-    if (state.animationId) {
-      window.cancelAnimationFrame(state.animationId);
-      state.animationId = null;
-    }
-  };
-
-  resize();
-
-  if (!prefersReducedMotion) {
-    draw();
-  } else {
-    ctx.clearRect(0, 0, state.width, state.height);
+  if (!pendingTasks.length) {
+    els.pendingNextDate.textContent = "Sin fecha pendiente";
+    return;
   }
 
-  window.addEventListener("resize", () => {
-    stop();
-    resize();
-    if (!prefersReducedMotion) {
-      draw();
+  const dated = pendingTasks.filter((task) => task.date).sort((a, b) => a.date.localeCompare(b.date));
+  els.pendingNextDate.textContent = dated.length ? formatDisplayDate(dated[0].date) : "Sin fecha pendiente";
+}
+
+function attachSwipeToEdit(target, onEdit) {
+  let startX = 0;
+  let currentX = 0;
+  let dragging = false;
+
+  const onPointerDown = (event) => {
+    if (event.target.closest("[data-folder-delete]")) {
+      return;
     }
+
+    startX = event.clientX;
+    currentX = 0;
+    dragging = true;
+    target.style.transition = "none";
+  };
+
+  const onPointerMove = (event) => {
+    if (!dragging) {
+      return;
+    }
+
+    currentX = Math.max(0, Math.min(event.clientX - startX, 84));
+    target.style.transform = `translateX(${currentX}px)`;
+  };
+
+  const onPointerUp = () => {
+    if (!dragging) {
+      return;
+    }
+
+    dragging = false;
+    target.style.transition = "transform 160ms ease";
+    target.style.transform = "translateX(0)";
+
+    if (currentX > 56) {
+      onEdit();
+    }
+  };
+
+  target.addEventListener("pointerdown", onPointerDown);
+  target.addEventListener("pointermove", onPointerMove);
+  target.addEventListener("pointerup", onPointerUp);
+  target.addEventListener("pointercancel", onPointerUp);
+  target.addEventListener("pointerleave", onPointerUp);
+}
+
+function renderFolders() {
+  els.folders.innerHTML = "";
+
+  state.folders.forEach((folder) => {
+    const isBaseFolder = BASE_FOLDERS.has(folder);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = [
+      "flex w-full items-center justify-between rounded-[24px] border px-4 py-3 text-left shadow-sm transition",
+      folder === state.selectedFolder
+        ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/30"
+        : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+    ].join(" ");
+
+    button.innerHTML = `
+      <span class="flex items-center gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-lg dark:bg-slate-800">📁</span>
+        <span>
+          <span class="block text-sm font-extrabold text-slate-800 dark:text-slate-100">${folder}</span>
+          <span class="block text-sm text-slate-400">${getFolderVisibleCount(folder)} tareas visibles</span>
+        </span>
+      </span>
+      ${
+        isBaseFolder
+          ? ""
+          : `<button type="button" data-folder-delete="${folder}" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[12px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">🗑</button>`
+      }
+    `;
+
+    button.addEventListener("click", (event) => {
+      if (event.target.closest("[data-folder-delete]")) {
+        return;
+      }
+
+      state.selectedFolder = folder;
+      renderAll();
+    });
+
+    attachSwipeToEdit(button, () => {
+      state.editingFolderName = folder;
+      els.folderModalTitle.textContent = "Editar carpeta";
+      els.folderInput.value = folder;
+      openModal(els.folderModal);
+      els.folderInput.focus();
+    });
+
+    const deleteBtn = button.querySelector("[data-folder-delete]");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        try {
+          await eliminarCategoria(folder);
+          if (state.selectedFolder === folder) {
+            state.selectedFolder = "Todas";
+          }
+          await loadCategories();
+          renderAll();
+          showFeedback("Carpeta eliminada", "success");
+        } catch (error) {
+          showFeedback(error.message);
+        }
+      });
+    }
+
+    els.folders.appendChild(button);
   });
 }
 
-function completeAllVisibleTasks() {
-  const visibleTaskIds = getFilteredTasks()
-    .filter((task) => !task.completed)
-    .map((task) => task.id);
+function renderCalendar() {
+  const year = state.currentDate.getFullYear();
+  const month = state.currentDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  let startDay = firstDay.getDay();
+  startDay = startDay === 0 ? 6 : startDay - 1;
 
-  if (!visibleTaskIds.length) return;
+  els.calendarTitle.textContent = `${monthNames[month]} ${year}`;
+  els.calendarGrid.innerHTML = "";
 
-  tasks = tasks.map((task) => (
-    visibleTaskIds.includes(task.id) ? { ...task, completed: true } : task
-  ));
+  for (let i = 0; i < startDay; i += 1) {
+    const blank = document.createElement("div");
+    blank.className = "h-8";
+    els.calendarGrid.appendChild(blank);
+  }
 
-  saveTasks();
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    const date = new Date(year, month, day);
+    const dateKey = formatDateKey(date);
+    const isSelected = state.selectedDate === dateKey;
+    const hasTasks = state.tasks.some((task) => task.date === dateKey);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = [
+      "relative flex h-9 items-center justify-center rounded-2xl text-[12px] font-bold transition",
+      isSelected ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-slate-900 bg-white text-slate-950" : "text-slate-200 hover:bg-white/10"
+    ].join(" ");
+    button.textContent = String(day);
+
+    if (hasTasks) {
+      const dot = document.createElement("span");
+      dot.className = "absolute bottom-1 h-1.5 w-1.5 rounded-full bg-sky-300";
+      button.appendChild(dot);
+    }
+
+    button.addEventListener("click", () => {
+      state.selectedDate = state.selectedDate === dateKey ? null : dateKey;
+      updateDateLabels();
+      renderAll();
+    });
+
+    els.calendarGrid.appendChild(button);
+  }
 }
 
-function clearCompletedTasks() {
-  tasks = tasks.filter((task) => !task.completed);
-  saveTasks();
+function renderTasks() {
+  const visibleTasks = getVisibleTasks();
+  els.tasksWrap.innerHTML = "";
+
+  if (!visibleTasks.length) {
+    els.tasksWrap.innerHTML = `
+      <div class="rounded-[32px] border border-slate-200 bg-white px-6 py-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div class="flex items-start gap-4">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-xl dark:bg-sky-950/50">🗂️</div>
+          <div>
+            <p class="text-lg font-black text-slate-800 dark:text-slate-100">No hay tareas para esta combinación.</p>
+            <p class="mt-1 text-slate-500 dark:text-slate-400">Selecciona otra fecha, cambia el filtro o añade una tarea nueva en <strong>${state.selectedFolder}</strong>.</p>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const header = document.createElement("div");
+  header.className = "mb-4 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-950";
+  header.innerHTML = `
+    <h2 class="text-base font-black text-slate-900 dark:text-slate-100">${state.selectedFolder}</h2>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">${state.selectedDate ? formatDisplayDate(state.selectedDate) : "Todas las fechas"}</p>
+  `;
+  els.tasksWrap.appendChild(header);
+
+  visibleTasks.forEach((task) => {
+    const node = els.taskTemplate.content.firstElementChild.cloneNode(true);
+    const checkbox = node.querySelector("[data-task-checkbox]");
+    const title = node.querySelector("[data-task-title]");
+    const meta = node.querySelector("[data-task-meta]");
+    const priority = node.querySelector("[data-task-priority]");
+    const deleteBtn = node.querySelector("[data-task-delete]");
+    const row = node.querySelector("[data-task-row]");
+
+    checkbox.checked = task.completed;
+    title.textContent = task.title;
+    meta.textContent = `${task.completed ? "Completada" : "Pendiente"} · ${task.date ? formatDisplayDate(task.date) : "Sin fecha"} · ${task.folder}`;
+    priority.className = getPriorityCssClasses(task.priority);
+    priority.textContent = task.priority;
+
+    if (task.completed) {
+      title.classList.add("line-through", "text-slate-400", "dark:text-slate-500");
+    }
+
+    checkbox.addEventListener("change", async () => {
+      try {
+        await actualizarTarea(task.id, { completada: checkbox.checked });
+        await loadTasks();
+        renderAll();
+      } catch (error) {
+        showFeedback(error.message);
+      }
+    });
+
+    deleteBtn.addEventListener("click", async () => {
+      try {
+        await eliminarTarea(task.id);
+        await loadTasks();
+        renderAll();
+        showFeedback("Tarea eliminada", "success");
+      } catch (error) {
+        showFeedback(error.message);
+      }
+    });
+
+    row.addEventListener("dblclick", () => openTaskModal(task));
+    els.tasksWrap.appendChild(node);
+  });
 }
 
-themeBtn.addEventListener("click", () => {
-  const isDark = document.documentElement.classList.contains("dark");
-  const nextTheme = isDark ? "light" : "dark";
-
-  localStorage.setItem(THEME_KEY, nextTheme);
-  applyTheme(nextTheme);
+function renderAll() {
+  updateDateLabels();
+  updateStats();
+  renderFolders();
   renderCalendar();
+  renderTasks();
+}
+
+function hydrateFolderSelect() {
+  els.taskFolderSelect.innerHTML = state.folders
+    .filter((folder) => folder !== "Todas")
+    .map((folder) => `<option value="${folder}">${folder}</option>`)
+    .join("");
+}
+
+function openTaskModal(task = null) {
+  state.editingTaskId = task?.id ?? null;
+  hydrateFolderSelect();
+  els.taskModalTitle.textContent = task ? "Editar tarea" : "Nueva tarea";
+  els.saveBtn.textContent = task ? "Actualizar" : "Guardar";
+  els.taskInput.value = task?.title ?? "";
+  els.taskFolderSelect.value = task?.folder ?? (state.selectedFolder === "Todas" ? "Trabajo" : state.selectedFolder);
+  els.taskPrioritySelect.value = task?.priority ?? "media";
+  els.currentDateLabel.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "Sin filtro de fecha";
+  openModal(els.modal);
+  els.taskInput.focus();
+}
+
+async function loadTasks() {
+  const tasks = await obtenerTareas();
+  state.tasks = tasks.map(normalizeTask);
+}
+
+async function loadCategories() {
+  const categories = await obtenerCategorias();
+  state.folders = categories;
+  if (!state.folders.includes(state.selectedFolder)) {
+    state.selectedFolder = state.folders[0] || "Todas";
+  }
+}
+
+async function bootstrap() {
+  applyTheme("light");
+  updateClock();
+
+  try {
+    await Promise.all([loadTasks(), loadCategories()]);
+    const firstDatedTask = state.tasks.find((task) => task.date);
+    state.selectedDate = firstDatedTask?.date ?? formatDateKey(new Date());
+    state.currentDate = parseDateKey(state.selectedDate);
+    renderAll();
+  } catch (error) {
+    showFeedback("No se pudieron cargar las tareas. Revisa que el servidor esté activo.");
+    renderAll();
+  }
+}
+
+els.themeBtn.addEventListener("click", () => {
+  applyTheme(state.theme === "dark" ? "light" : "dark");
 });
 
-addBtn.addEventListener("click", () => {
-  openTaskModal();
+els.addBtn.addEventListener("click", () => openTaskModal());
+els.cancelBtn.addEventListener("click", () => closeModal(els.modal));
+els.folderCancelBtn.addEventListener("click", () => closeModal(els.folderModal));
+els.confirmCancel.addEventListener("click", () => closeModal(els.confirmModal));
+
+els.addFolderBtn.addEventListener("click", () => {
+  state.editingFolderName = null;
+  els.folderModalTitle.textContent = "Nueva carpeta";
+  els.folderInput.value = "";
+  openModal(els.folderModal);
+  els.folderInput.focus();
 });
 
-cancelBtn.addEventListener("click", () => {
-  editingTaskId = null;
-  closeModal(modal);
+els.folderSaveBtn.addEventListener("click", async () => {
+  const name = els.folderInput.value.trim();
+  if (!name) {
+    showFeedback("Escribe un nombre de carpeta");
+    return;
+  }
+
+  try {
+    if (state.editingFolderName) {
+      const previousName = state.editingFolderName;
+
+      if (previousName !== name) {
+        await crearCategoria(name);
+
+        const tasksToMove = state.tasks.filter((task) => task.folder === previousName);
+        await Promise.all(tasksToMove.map((task) => actualizarTarea(task.id, { categoria: name })));
+
+        await eliminarCategoria(previousName);
+        await loadTasks();
+      }
+    } else {
+      await crearCategoria(name);
+    }
+
+    await loadCategories();
+    state.selectedFolder = name;
+    state.editingFolderName = null;
+    closeModal(els.folderModal);
+    renderAll();
+    showFeedback("Carpeta guardada", "success");
+  } catch (error) {
+    showFeedback(error.message);
+  }
 });
 
-taskForm.addEventListener("submit", (event) => {
+els.taskForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const title = els.taskInput.value.trim();
 
-  const title = taskInput.value.trim();
-  const folder = taskFolderSelect.value;
-  const priority = taskPrioritySelect.value;
-
-  if (!title) {
-    taskInput.focus();
+  if (title.length < 3) {
+    showFeedback("El título debe tener al menos 3 caracteres");
     return;
   }
 
-  if (editingTaskId) {
-    updateTask(editingTaskId, { title, folder, date: selectedDate, priority });
-  } else {
-    addTask(title, folder, selectedDate, priority);
+  const payload = {
+    texto: title,
+    categoria: els.taskFolderSelect.value,
+    prioridad: els.taskPrioritySelect.value,
+    fecha: state.selectedDate
+  };
+
+  try {
+    if (state.editingTaskId) {
+      await actualizarTarea(state.editingTaskId, payload);
+    } else {
+      await crearTarea(payload);
+    }
+    closeModal(els.modal);
+    await loadTasks();
+    state.selectedFolder = payload.categoria;
+    renderAll();
+    showFeedback(state.editingTaskId ? "Tarea actualizada" : "Tarea creada", "success");
+  } catch (error) {
+    showFeedback(error.message);
   }
-
-  selectedFolder = folder;
-  editingTaskId = null;
-  renderFolders();
-  renderTasks();
-  renderCalendar();
-  closeModal(modal);
 });
 
-addFolderBtn.addEventListener("click", () => {
-  openFolderModal();
+els.search.addEventListener("input", (event) => {
+  state.searchQuery = event.target.value.trim().toLowerCase();
+  renderAll();
 });
 
-folderCancelBtn.addEventListener("click", () => {
-  editingFolderName = null;
-  closeModal(folderModal);
+els.statusFilter.addEventListener("change", (event) => {
+  state.statusFilter = event.target.value;
+  renderAll();
 });
 
-folderSaveBtn.addEventListener("click", () => {
-  const nextName = folderInput.value.trim();
-  if (!nextName) {
-    folderInput.focus();
-    return;
+els.sortFilter.addEventListener("change", (event) => {
+  state.sortFilter = event.target.value;
+  renderAll();
+});
+
+els.priorityFilter.addEventListener("change", (event) => {
+  state.priorityFilter = event.target.value;
+  renderAll();
+});
+
+els.clearDateFilterBtn.addEventListener("click", () => {
+  state.selectedDate = null;
+  renderAll();
+});
+
+els.completeAllBtn.addEventListener("click", async () => {
+  const pending = getVisibleTasks().filter((task) => !task.completed);
+  try {
+    await Promise.all(pending.map((task) => actualizarTarea(task.id, { completada: true })));
+    await loadTasks();
+    renderAll();
+    showFeedback("Tareas completadas", "success");
+  } catch (error) {
+    showFeedback(error.message);
   }
+});
 
-  const duplicated = folders.some((folder) => folder.toLowerCase() === nextName.toLowerCase());
-  if (duplicated && editingFolderName?.toLowerCase() !== nextName.toLowerCase()) {
-    folderInput.focus();
-    return;
+els.clearCompletedBtn.addEventListener("click", async () => {
+  const completed = state.tasks.filter((task) => task.completed);
+  try {
+    await Promise.all(completed.map((task) => eliminarTarea(task.id)));
+    await loadTasks();
+    renderAll();
+    showFeedback("Completadas borradas", "success");
+  } catch (error) {
+    showFeedback(error.message);
   }
-
-  if (editingFolderName) {
-    renameFolder(editingFolderName, nextName);
-  } else {
-    addFolder(nextName);
-    selectedFolder = nextName;
-  }
-
-  editingFolderName = null;
-  renderFolders();
-  renderTasks();
-  closeModal(folderModal);
 });
 
-confirmCancel.addEventListener("click", () => {
-  pendingDelete = null;
-  closeModal(confirmModal);
-});
-
-confirmOk.addEventListener("click", () => {
-  if (!pendingDelete) return;
-
-  if (pendingDelete.type === "folder") {
-    deleteFolder(pendingDelete.folder);
-    renderFolders();
-  } else {
-    deleteTask(pendingDelete.id);
-  }
-
-  pendingDelete = null;
-  renderTasks();
-  renderCalendar();
-  closeModal(confirmModal);
-});
-
-searchInput.addEventListener("input", () => {
-  renderFolders();
-  renderTasks();
-});
-
-filterAll.addEventListener("click", () => {
-  currentFilter = "all";
-  renderFolders();
-  renderTasks();
-});
-
-filterPending.addEventListener("click", () => {
-  currentFilter = "pending";
-  renderFolders();
-  renderTasks();
-});
-
-filterCompleted.addEventListener("click", () => {
-  currentFilter = "completed";
-  renderFolders();
-  renderTasks();
-});
-
-completeAllBtn.addEventListener("click", () => {
-  completeAllVisibleTasks();
-  renderTasks();
-});
-
-clearCompletedBtn.addEventListener("click", () => {
-  clearCompletedTasks();
-  renderFolders();
-  renderTasks();
+els.prevMonth.addEventListener("click", () => {
+  state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() - 1, 1);
   renderCalendar();
 });
 
-prevMonth.addEventListener("click", () => {
-  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+els.nextMonth.addEventListener("click", () => {
+  state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + 1, 1);
   renderCalendar();
 });
 
-nextMonth.addEventListener("click", () => {
-  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-  renderCalendar();
-});
-
-todayBtn.addEventListener("click", () => {
+els.todayBtn.addEventListener("click", () => {
   const today = new Date();
-  currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  selectedDate = formatDateKey(today);
-  updateSelectedDateLabels();
-  renderCalendar();
-  renderTasks();
+  state.currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  state.selectedDate = formatDateKey(today);
+  renderAll();
 });
-
-loadTheme();
-syncInitialSelection();
-updateSelectedDateLabels();
-renderFolders();
-renderTasks();
-renderCalendar();
-updateClock();
-initParticles();
 
 setInterval(updateClock, 60_000);
+bootstrap();

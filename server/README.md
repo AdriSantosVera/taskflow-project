@@ -1,52 +1,24 @@
-# TaskFlow Backend (Express API)
+# Taskflow Registro Backend
 
-Backend RESTful para TaskFlow Registro, construido con Node.js + Express y arquitectura por capas.
-Este documento describe la arquitectura, los middlewares, el modelo de datos y el contrato HTTP de la API.
+Backend RESTful de `Taskflow Registro`, desarrollado con Node.js y Express. Este servicio expone la API que consume el frontend, centraliza la validación de datos y organiza la lógica mediante una arquitectura por capas.
 
-## Requisitos
+## Objetivo
 
-- Node.js 18+
-- npm
+El propósito de este backend es desacoplar la lógica de persistencia y validación del navegador, permitiendo que el frontend trabaje contra un contrato HTTP claro, documentado y reutilizable.
 
-## Instalación
+## Stack técnico
 
-```bash
-cd server
-npm install
-```
+- Node.js
+- Express
+- CORS
+- Dotenv
+- Swagger UI
+- Swagger JSDoc
+- Nodemon
 
-## Arranque rápido
+## Estructura
 
-```bash
-npm run dev
-```
-
-Servidor disponible en:
-```
-http://localhost:3000
-```
-
-## Variables de entorno
-
-Crea un archivo `.env` con:
-
-```
-PORT=3000
-```
-
-El servidor valida que `PORT` exista en `src/config/env.js`. Si falta, se lanza un error y el servidor no inicia.
-
-## Scripts
-
-```bash
-npm run dev
-```
-
-Inicia el servidor con `nodemon` en `src/index.js`.
-
-## Arquitectura por capas
-
-```
+```text
 server/
   src/
     config/
@@ -54,24 +26,114 @@ server/
       swagger.js
     controllers/
       task.controller.js
+      category.controller.js
     routes/
       task.routes.js
+      category.routes.js
     services/
       task.service.js
+      category.service.js
     index.js
+  .env
+  package.json
+  README.md
+  vercel.json
 ```
 
-### Flujo de una petición
+## Arquitectura por capas
 
-1. **Routes**: mapean ruta y verbo HTTP → controlador.
-2. **Controllers**: validan datos (`req.body`, `req.params`) y construyen la respuesta HTTP.
-3. **Services**: lógica de negocio pura en memoria (`tasks = []`).
+La API sigue una separación estricta de responsabilidades:
 
-La capa de servicios **no conoce Express** y es testeable de forma aislada.
+### 1. Capa de rutas
+
+Los archivos en `routes/` definen los endpoints y conectan cada verbo HTTP con su controlador correspondiente. Esta capa no contiene lógica de negocio.
+
+### 2. Capa de controladores
+
+Los controladores reciben `req`, validan la entrada, adaptan el contrato de red y devuelven la respuesta HTTP. Aquí se traduce el payload del frontend al formato interno del servidor.
+
+### 3. Capa de servicios
+
+Los servicios encapsulan la lógica de negocio y el almacenamiento temporal en memoria. Esta capa no depende de Express y puede evolucionar en el futuro hacia persistencia en archivo o base de datos.
+
+## Flujo de petición
+
+1. El cliente envía una petición HTTP.
+2. Express la recibe y ejecuta los middlewares globales.
+3. La ruta correspondiente delega en el controlador.
+4. El controlador valida datos y llama al servicio.
+5. El servicio ejecuta la lógica y devuelve el resultado.
+6. El controlador responde con el código HTTP adecuado.
+7. Si ocurre un error, el middleware global de errores lo transforma en una respuesta controlada.
+
+## Variables de entorno
+
+Archivo requerido:
+
+```env
+PORT=3000
+```
+
+La configuración se carga en [src/config/env.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/env.js).
+
+El servidor no arranca si `PORT` no está definido. Esto fuerza una configuración mínima válida desde el inicio.
+
+## Scripts
+
+Instalación:
+
+```bash
+npm install
+```
+
+Desarrollo:
+
+```bash
+npm run dev
+```
+
+Este script ejecuta `nodemon src/index.js`, reiniciando automáticamente el servidor cuando se guardan cambios.
+
+## Middlewares
+
+### `express.json()`
+
+Parsea cuerpos JSON y los expone como objetos en `req.body`. Es imprescindible para procesar correctamente peticiones `POST`, `PATCH` y `PUT`.
+
+### `cors()`
+
+Permite que el frontend consuma la API desde otro origen, por ejemplo desde Live Server en `127.0.0.1:5500`.
+
+### `loggerAcademico`
+
+Middleware personalizado que registra:
+
+- método HTTP
+- URL solicitada
+- código de estado
+- duración de la petición en milisegundos
+
+Su objetivo es mejorar la trazabilidad y facilitar el debugging durante desarrollo.
+
+### Middleware global de errores
+
+Se declara al final del ciclo de Express con la firma:
+
+```js
+(err, req, res, next)
+```
+
+Responsabilidades:
+
+- traducir `NOT_FOUND` a `404 Not Found`
+- registrar errores inesperados con `console.error`
+- devolver `500 Internal Server Error` sin exponer detalles sensibles
 
 ## Modelo de datos
 
-Cada tarea sigue este esquema:
+### Tarea
+
+Internamente el backend trabaja con este esquema:
 
 ```json
 {
@@ -85,146 +147,240 @@ Cada tarea sigue este esquema:
 }
 ```
 
-## Middlewares
+Además, por compatibilidad con el frontend actual, el backend acepta y devuelve alias como:
 
-### `express.json()`
-Middleware de parseo. Convierte el body JSON en un objeto accesible desde `req.body`.
+- `texto` ↔ `title`
+- `categoria` ↔ `folder`
+- `fecha` ↔ `date`
+- `prioridad` ↔ `priority`
+- `completada` ↔ `completed`
 
-### `cors()`
-Habilita CORS para permitir que el frontend consuma la API desde otro origen.
+### Categoría
 
-### Logger académico (middleware propio)
-Registra método, URL, status y duración de la petición. Útil para trazabilidad básica.
+Las categorías se gestionan como una colección simple de nombres.
 
-### Middleware global de errores
-Middleware de 4 parámetros `(err, req, res, next)` que captura fallos no controlados:
+Categorías base iniciales:
 
-- Si `err.message === 'NOT_FOUND'` → `404 Not Found`.
-- Cualquier otro error → `500 Internal Server Error` y `console.error(err)`.
+- `Todas`
+- `Trabajo`
+- `Estudios`
+- `Personal`
 
-## Validaciones (frontera de red)
+## Validación de entrada
 
-Antes de llegar a la capa de servicios, el controlador valida:
+La validación ocurre en la frontera de red, antes de que los datos lleguen a la lógica de negocio.
 
-- `title`: obligatorio, tipo string, mínimo 3 caracteres.
-- `priority`: opcional; si existe debe ser `alta`, `media` o `baja`.
-- `date`: opcional; debe tener formato `YYYY-MM-DD`.
-- `folder`: opcional; string.
+### Reglas de tareas
 
-Si falla la validación → `400 Bad Request` con mensaje de error.
+- `title` o `texto`: obligatorio, string, mínimo 3 caracteres
+- `priority` o `prioridad`: opcional, pero si existe debe ser `alta`, `media` o `baja`
+- `date` o `fecha`: opcional, formato `YYYY-MM-DD`
+- `folder` o `categoria`: opcional, string
+- `completed` o `completada`: opcional, booleano
+
+### Reglas de categorías
+
+- `nombre`: obligatorio, string no vacío
+
+Si falla alguna validación, la API devuelve `400 Bad Request`.
 
 ## API REST
 
 Base URL:
-```
-http://localhost:3000/api/v1/tasks
+
+```text
+http://localhost:3000/api/v1
 ```
 
-### GET /tasks
+### Endpoints de tareas
+
+- `GET /tasks`
+- `POST /tasks`
+- `PATCH /tasks/:id`
+- `PUT /tasks/:id`
+- `DELETE /tasks/:id`
+
+### Endpoints de categorías
+
+- `GET /categories`
+- `POST /categories`
+- `DELETE /categories/:nombre`
+
+## Ejemplos de uso
+
+### Obtener tareas
+
 ```bash
 curl http://localhost:3000/api/v1/tasks
 ```
 
-**Response 200**
-```json
-[
-  {
-    "id": "uuid",
-    "title": "Llamar comercial",
-    "completed": false,
-    "createdAt": "2026-03-26T10:13:35.612Z",
-    "folder": "General",
-    "date": "2026-03-26",
-    "priority": "media"
-  }
-]
-```
+### Crear una tarea
 
-### POST /tasks
 ```bash
 curl -X POST http://localhost:3000/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"title":"Nueva tarea","priority":"media","date":"2026-03-26","folder":"General"}'
+  -d '{"texto":"Preparar entrega","categoria":"Trabajo","prioridad":"alta","fecha":"2026-04-03"}'
 ```
 
-**Response 201**
-```json
-{
-  "id": "uuid",
-  "title": "Nueva tarea",
-  "completed": false,
-  "createdAt": "2026-03-26T10:13:35.612Z",
-  "folder": "General",
-  "date": "2026-03-26",
-  "priority": "media"
-}
-```
+### Marcar una tarea como completada
 
-### PATCH /tasks/:id
 ```bash
 curl -X PATCH http://localhost:3000/api/v1/tasks/ID \
   -H "Content-Type: application/json" \
-  -d '{"completed": true}'
+  -d '{"completada": true}'
 ```
 
-**Response 200**
-```json
-{
-  "id": "uuid",
-  "title": "Nueva tarea",
-  "completed": true,
-  "createdAt": "2026-03-26T10:13:35.612Z",
-  "folder": "General",
-  "date": "2026-03-26",
-  "priority": "media"
-}
-```
+### Eliminar una tarea
 
-### DELETE /tasks/:id
 ```bash
 curl -X DELETE http://localhost:3000/api/v1/tasks/ID
 ```
 
-## Respuestas y códigos HTTP
+### Obtener categorías
 
-- `200 OK`: lectura y actualización correctas.
-- `201 Created`: creación correcta.
-- `204 No Content`: eliminación correcta.
-- `400 Bad Request`: datos inválidos (validación).
-- `404 Not Found`: recurso inexistente.
-- `500 Internal Server Error`: error no controlado.
-
-## Casos de error (ejemplos)
-
-**POST sin título**
-```json
-{ "error": "El título es obligatorio y debe tener al menos 3 caracteres." }
+```bash
+curl http://localhost:3000/api/v1/categories
 ```
 
-**PATCH/DELETE con ID inexistente**
-```json
-{ "error": "Recurso no encontrado" }
+### Crear categoría
+
+```bash
+curl -X POST http://localhost:3000/api/v1/categories \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Clientes"}'
 ```
 
-## Pruebas de integración (Postman)
+## Códigos HTTP
 
-- GET `/api/v1/tasks` → `200 OK`
-- POST válido → `201 Created`
-- POST sin `title` → `400 Bad Request`
-- PATCH con id válido → `200 OK`
-- PATCH con id inexistente → `404 Not Found`
-- DELETE con id válido → `204 No Content`
-- DELETE con id inexistente → `404 Not Found`
+- `200 OK`: lectura o actualización correcta
+- `201 Created`: creación correcta
+- `204 No Content`: borrado correcto
+- `400 Bad Request`: validación fallida
+- `404 Not Found`: recurso inexistente
+- `500 Internal Server Error`: fallo no controlado
+
+## Casos de error
+
+### Crear tarea sin título válido
+
+```json
+{
+  "error": "El título es obligatorio y debe tener al menos 3 caracteres."
+}
+```
+
+### Eliminar o actualizar un recurso inexistente
+
+```json
+{
+  "error": "Recurso no encontrado"
+}
+```
+
+## Integraciones
+
+### Integración con el frontend
+
+El frontend de `Taskflow Registro` consume esta API mediante `fetch` desde:
+
+[src/api/client.js](/Users/adri/Developer/taskflow-project/taskflow-registro/src/api/client.js)
+
+Durante desarrollo local, la integración se realiza contra:
+
+```text
+http://localhost:3000
+```
+
+Esto permite:
+
+- cargar tareas al arrancar la interfaz
+- crear tareas desde el modal
+- actualizar estado de completado
+- borrar tareas completadas
+- crear y eliminar carpetas
+
+### Integración con Swagger
+
+La API está documentada de forma interactiva mediante Swagger UI en:
+
+[http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+
+La especificación se genera desde:
+
+[src/config/swagger.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/swagger.js)
+
+Swagger permite:
+
+- explorar endpoints
+- revisar esquemas de entrada y salida
+- probar peticiones sin necesidad de Postman
+
+### Integración con Postman
+
+Postman se utiliza para pruebas de integración manuales y verificación de errores HTTP.
+
+Casos probados:
+
+- `GET /api/v1/tasks`
+- `POST /api/v1/tasks` válido
+- `POST /api/v1/tasks` inválido
+- `PATCH /api/v1/tasks/:id`
+- `DELETE /api/v1/tasks/:id`
+- `GET /api/v1/categories`
+- `POST /api/v1/categories`
+
+### Integración con Vercel
+
+El backend incluye:
+
+[vercel.json](/Users/adri/Developer/taskflow-project/taskflow-registro/server/vercel.json)
+
+Esto prepara el proyecto para despliegue en Vercel. No obstante, hay una limitación importante:
+
+- actualmente la persistencia es en memoria
+- en entornos serverless esta estrategia no garantiza conservación de datos entre ejecuciones
+
+Para un despliegue estable en producción sería necesario incorporar persistencia real.
 
 ## Swagger
 
 Documentación interactiva disponible en:
 
-```
+```text
 http://localhost:3000/api-docs
 ```
 
-## Notas importantes
+## Pruebas de integración
 
-- Persistencia **en memoria**: al reiniciar el servidor se pierden las tareas.
-- Para persistencia real, se requiere base de datos (MongoDB / SQLite).
+Pruebas realizadas:
+
+- `GET /api/v1/tasks` devuelve `200 OK`
+- `POST /api/v1/tasks` con body válido devuelve `201 Created`
+- `POST /api/v1/tasks` con título inválido devuelve `400 Bad Request`
+- `PATCH /api/v1/tasks/:id` actualiza correctamente el estado de una tarea
+- `DELETE /api/v1/tasks/:id` devuelve `204 No Content`
+- `DELETE /api/v1/tasks/:id` con id inexistente devuelve `404 Not Found`
+- `GET /api/v1/categories` devuelve categorías base
+- `POST /api/v1/categories` crea nuevas carpetas
+
+## Limitaciones actuales
+
+La persistencia está implementada en memoria:
+
+- los datos funcionan correctamente mientras el proceso Node sigue activo
+- si el servidor se reinicia, las tareas y categorías dinámicas se pierden
+- en Vercel esta estrategia no es adecuada como solución definitiva
+
+## Próxima mejora recomendada
+
+Para convertir esta API en una solución más robusta, el siguiente paso recomendado es sustituir la persistencia en memoria por:
+
+- archivo JSON
+- SQLite
+- MongoDB
+
+## Proyecto relacionado
+
+La aplicación frontend asociada está documentada en:
+
+[README.md](/Users/adri/Developer/taskflow-project/taskflow-registro/README.md)

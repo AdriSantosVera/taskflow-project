@@ -1,3 +1,6 @@
+.vercel
+.env*.local
 .DS_Store
+.postman/
+postman/
 node_modules/
-server/.env

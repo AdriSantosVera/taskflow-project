@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const { performance } = require("perf_hooks");
 const taskRoutes = require("./routes/task.routes");
+const categoryRoutes = require("./routes/category.routes");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
@@ -33,6 +34,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/v1/tasks", taskRoutes);
+app.use("/api/v1/categories", categoryRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
