@@ -1,5 +1,9 @@
-require("dotenv").config();
+const path = require("path");
+const dotenv = require("dotenv");
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env.local"), override: true });
 
 if (!process.env.PORT) {
-  throw new Error("El puerto no está definido");
+  process.env.PORT = "3000";
 }

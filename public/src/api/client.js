@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "";
 const TASKS_URL = `${BACKEND_URL}/api/v1/tasks`;
 const CATEGORIES_URL = `${BACKEND_URL}/api/v1/categories`;
 

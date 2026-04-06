@@ -1,8 +1,8 @@
 module.exports = {
   content: [
-    "./index.html",
-    "./app.js",
-    "./src/**/*.js"
+    "./public/index.html",
+    "./public/app.js",
+    "./public/src/**/*.js"
   ],
   darkMode: "class",
   theme: {
