@@ -303,7 +303,7 @@ function attachSwipeToEdit(target, onEdit) {
 function renderFolders() {
   els.folders.innerHTML = "";
 
-  state.folders.forEach((folder) => {
+  state.folders.filter((folder) => folder !== "Todas").forEach((folder) => {
     const isBaseFolder = BASE_FOLDERS.has(folder);
     const button = document.createElement("button");
     button.type = "button";
