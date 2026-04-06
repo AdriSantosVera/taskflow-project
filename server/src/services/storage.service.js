@@ -1,7 +1,7 @@
-const { get, put } = require("@vercel/blob");
+const { get, list, put } = require("@vercel/blob");
 
 const BASE_CATEGORIES = ["Todas", "Trabajo", "Estudios", "Personal"];
-const STATE_PATHNAME = "data/state.json";
+const STATE_PREFIX = "data/state-";
 
 let memoryState = {
   tasks: [],
@@ -42,11 +42,22 @@ async function readState() {
     return memoryState;
   }
 
-  const result = await get(STATE_PATHNAME, { access: "private" });
-  if (!result || result.statusCode !== 200) {
+  const { blobs } = await list({ prefix: STATE_PREFIX, limit: 1000 });
+  const latestBlob = [...blobs].sort(
+    (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+  )[0];
+
+  if (!latestBlob) {
     const initialState = normalizeState(memoryState);
     await writeState(initialState);
     return initialState;
+  }
+
+  const result = await get(latestBlob.pathname, { access: "private" });
+  if (!result || result.statusCode !== 200) {
+    const fallbackState = normalizeState(memoryState);
+    await writeState(fallbackState);
+    return fallbackState;
   }
 
   const rawJson = await streamToString(result.stream);
@@ -62,10 +73,9 @@ async function writeState(nextState) {
     return normalizedState;
   }
 
-  await put(STATE_PATHNAME, JSON.stringify(normalizedState), {
+  await put(`${STATE_PREFIX}${Date.now()}.json`, JSON.stringify(normalizedState), {
     access: "private",
     addRandomSuffix: false,
-    overwrite: true,
     contentType: "application/json"
   });
 
