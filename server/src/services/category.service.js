@@ -33,7 +33,7 @@ function eliminar(nombre) {
 
   const index = categories.findIndex((cat) => cat.toLowerCase() === trimmed.toLowerCase());
   if (index === -1) {
-    throw new Error("NOT_FOUND");
+    return;
   }
 
   categories = categories.filter((cat) => cat.toLowerCase() !== trimmed.toLowerCase());
