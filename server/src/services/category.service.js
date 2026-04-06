@@ -1,29 +1,27 @@
-const { BASE_CATEGORIES, readState, writeState } = require("./storage.service");
+const BASE_CATEGORIES = ["Todas", "Trabajo", "Estudios", "Personal"];
 
-async function obtenerTodas() {
-  const state = await readState();
-  return state.categories;
+let categories = [...BASE_CATEGORIES];
+
+function obtenerTodas() {
+  return categories;
 }
 
-async function crear(nombre) {
-  const state = await readState();
+function crear(nombre) {
   const trimmed = String(nombre || "").trim();
   if (!trimmed) {
     throw new Error("INVALID");
   }
 
-  const exists = state.categories.some((cat) => cat.toLowerCase() === trimmed.toLowerCase());
+  const exists = categories.some((cat) => cat.toLowerCase() === trimmed.toLowerCase());
   if (exists) {
     throw new Error("DUPLICATE");
   }
 
-  state.categories.push(trimmed);
-  await writeState(state);
+  categories.push(trimmed);
   return trimmed;
 }
 
-async function eliminar(nombre) {
-  const state = await readState();
+function eliminar(nombre) {
   const trimmed = String(nombre || "").trim();
   if (!trimmed) {
     throw new Error("INVALID");
@@ -33,13 +31,12 @@ async function eliminar(nombre) {
     throw new Error("FORBIDDEN");
   }
 
-  const index = state.categories.findIndex((cat) => cat.toLowerCase() === trimmed.toLowerCase());
+  const index = categories.findIndex((cat) => cat.toLowerCase() === trimmed.toLowerCase());
   if (index === -1) {
     return;
   }
 
-  state.categories = state.categories.filter((cat) => cat.toLowerCase() !== trimmed.toLowerCase());
-  await writeState(state);
+  categories = categories.filter((cat) => cat.toLowerCase() !== trimmed.toLowerCase());
 }
 
 module.exports = {
