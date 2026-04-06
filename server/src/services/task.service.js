@@ -1,12 +1,13 @@
 const { randomUUID } = require("crypto");
+const { readState, writeState } = require("./storage.service");
 
-let tasks = [];
-
-function obtenerTodas() {
-  return tasks;
+async function obtenerTodas() {
+  const state = await readState();
+  return state.tasks;
 }
 
-function crearTarea(data) {
+async function crearTarea(data) {
+  const state = await readState();
   const now = new Date().toISOString();
   const task = {
     id: randomUUID(),
@@ -18,33 +19,38 @@ function crearTarea(data) {
     priority: data.priority || "media"
   };
 
-  tasks.unshift(task);
+  state.tasks.unshift(task);
+  await writeState(state);
   return task;
 }
 
-function actualizarTarea(id, updates) {
-  const index = tasks.findIndex((task) => task.id === id);
+async function actualizarTarea(id, updates) {
+  const state = await readState();
+  const index = state.tasks.findIndex((task) => task.id === id);
   if (index === -1) {
     throw new Error("NOT_FOUND");
   }
 
-  const current = tasks[index];
+  const current = state.tasks[index];
   const next = {
     ...current,
     ...updates
   };
 
-  tasks[index] = next;
+  state.tasks[index] = next;
+  await writeState(state);
   return next;
 }
 
-function eliminarTarea(id) {
-  const index = tasks.findIndex((task) => task.id === id);
+async function eliminarTarea(id) {
+  const state = await readState();
+  const index = state.tasks.findIndex((task) => task.id === id);
   if (index === -1) {
     throw new Error("NOT_FOUND");
   }
 
-  tasks = tasks.filter((task) => task.id !== id);
+  state.tasks = state.tasks.filter((task) => task.id !== id);
+  await writeState(state);
 }
 
 module.exports = {

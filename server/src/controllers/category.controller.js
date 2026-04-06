@@ -1,14 +1,14 @@
 const categoryService = require("../services/category.service");
 
-function getAll(req, res) {
-  const categories = categoryService.obtenerTodas();
+async function getAll(req, res) {
+  const categories = await categoryService.obtenerTodas();
   res.json(categories);
 }
 
-function create(req, res) {
+async function create(req, res) {
   const { nombre } = req.body;
   try {
-    const created = categoryService.crear(nombre);
+    const created = await categoryService.crear(nombre);
     return res.status(201).json({ nombre: created });
   } catch (err) {
     if (err.message === "INVALID") {
@@ -21,10 +21,10 @@ function create(req, res) {
   }
 }
 
-function remove(req, res) {
+async function remove(req, res) {
   const { nombre } = req.params;
   try {
-    categoryService.eliminar(nombre);
+    await categoryService.eliminar(nombre);
     return res.status(204).send();
   } catch (err) {
     if (err.message === "FORBIDDEN") {
