@@ -65,7 +65,7 @@ async function writeState(nextState) {
   await put(STATE_PATHNAME, JSON.stringify(normalizedState), {
     access: "private",
     addRandomSuffix: false,
-    allowOverwrite: true,
+    overwrite: true,
     contentType: "application/json"
   });
 
