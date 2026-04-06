@@ -1,4 +1,5 @@
-const BACKEND_URL = "";
+const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const BACKEND_URL = isLocalhost ? "http://localhost:3000" : "";
 const TASKS_URL = `${BACKEND_URL}/api/v1/tasks`;
 const CATEGORIES_URL = `${BACKEND_URL}/api/v1/categories`;
 
