@@ -4,7 +4,7 @@ Backend RESTful de `Taskflow Registro`, desarrollado con Node.js y Express. Este
 
 ## Objetivo
 
-El propósito de este backend es desacoplar la lógica de persistencia y validación del navegador, permitiendo que el frontend trabaje contra un contrato HTTP claro, documentado y reutilizable.
+El propósito de este backend es desacoplar la lógica de validación y gestión de tareas del navegador, permitiendo que el frontend trabaje contra un contrato HTTP claro, documentado y reutilizable.
 
 ## Stack técnico
 
@@ -37,12 +37,11 @@ server/
   .env
   package.json
   README.md
-  vercel.json
 ```
 
 ## Arquitectura por capas
 
-La API sigue una separación estricta de responsabilidades:
+La API sigue una separación clara de responsabilidades:
 
 ### 1. Capa de rutas
 
@@ -68,15 +67,15 @@ Los servicios encapsulan la lógica de negocio y el almacenamiento temporal en m
 
 ## Variables de entorno
 
-Archivo requerido:
+Archivo recomendado:
 
 ```env
 PORT=3000
 ```
 
-La configuración se carga en [src/config/env.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/env.js).
+La configuración se carga en [env.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/env.js).
 
-El servidor no arranca si `PORT` no está definido. Esto fuerza una configuración mínima válida desde el inicio.
+Si `PORT` no está definido, el servidor utiliza `3000` por defecto.
 
 ## Scripts
 
@@ -227,7 +226,7 @@ curl -X POST http://localhost:3000/api/v1/tasks \
 ```bash
 curl -X PATCH http://localhost:3000/api/v1/tasks/ID \
   -H "Content-Type: application/json" \
-  -d '{"completada": true}'
+  -d '{"completada":true}'
 ```
 
 ### Eliminar una tarea
@@ -283,7 +282,7 @@ curl -X POST http://localhost:3000/api/v1/categories \
 
 El frontend de `Taskflow Registro` consume esta API mediante `fetch` desde:
 
-[src/api/client.js](/Users/adri/Developer/taskflow-project/taskflow-registro/src/api/client.js)
+[client.js](/Users/adri/Developer/taskflow-project/taskflow-registro/public/src/api/client.js)
 
 Durante desarrollo local, la integración se realiza contra:
 
@@ -295,7 +294,7 @@ Esto permite:
 
 - cargar tareas al arrancar la interfaz
 - crear tareas desde el modal
-- actualizar estado de completado
+- actualizar el estado de completado
 - borrar tareas completadas
 - crear y eliminar carpetas
 
@@ -307,7 +306,7 @@ La API está documentada de forma interactiva mediante Swagger UI en:
 
 La especificación se genera desde:
 
-[src/config/swagger.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/swagger.js)
+[swagger.js](/Users/adri/Developer/taskflow-project/taskflow-registro/server/src/config/swagger.js)
 
 Swagger permite:
 
@@ -331,11 +330,7 @@ Casos probados:
 
 ### Integración con Vercel
 
-El backend incluye:
-
-[vercel.json](/Users/adri/Developer/taskflow-project/taskflow-registro/server/vercel.json)
-
-Esto prepara el proyecto para despliegue en Vercel. No obstante, hay una limitación importante:
+El proyecto puede desplegarse en Vercel junto con el frontend. No obstante, existe una limitación importante:
 
 - actualmente la persistencia es en memoria
 - en entornos serverless esta estrategia no garantiza conservación de datos entre ejecuciones
